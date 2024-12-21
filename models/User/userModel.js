@@ -30,8 +30,8 @@ const userSchema = new mongoose.Schema({
         default: false
     },
     isAdmin: {
-        type: String,
-        default: 'itsUser'
+        type: boolean,
+        default: false
     },
     refreshToken: {
         type: String
@@ -52,6 +52,9 @@ const userSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
+    salt:{
+        type: String
+    }
 },
 {
     timestamps: true
