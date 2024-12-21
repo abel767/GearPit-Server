@@ -3,6 +3,8 @@ const bcrypt = require('bcrypt')
 const jwt = require('jsonwebtoken')
 const nodemailer = require('nodemailer')
 const otpVerification = require('../../models/OTP/otpverificationModel')
+const crypto = require('crypto')
+
 // hashing the password with salt for more secure
 const securePassword = async (password)=>{
     try{
@@ -10,7 +12,7 @@ const securePassword = async (password)=>{
         const salt = await bcrypt.genSalt(saltRounds)
         const hashedPassword = await bcrypt.hash(password + salt, saltRounds)
 
-         return(hashedPassword, salt)
+         return {hashedPassword, salt}
     }catch(error){
         console.log(error)
         throw new Error('Error while securing the password')
@@ -20,11 +22,19 @@ const securePassword = async (password)=>{
 // otp transport email and password
 const transporter = nodemailer.createTransport({
     service: 'gmail',
-    auth:{
-        user: process.env.AUTH_EMAIL,
-        pass: process.env.AUTH_PASSWORD
+    auth: {
+        user: process.env.AUTH_EMAIL,  // Make sure it's the correct email address
+        pass: process.env.AUTH_PASSWORD // Ensure the app password is correct
+    },
+    tls: {
+        rejectUnauthorized: false
     }
-})
+    
+});
+console.log('AUTH_EMAIL:', process.env.AUTH_EMAIL);
+console.log('AUTH_PASSWORD:', process.env.AUTH_PASSWORD);
+
+
 
 
 const generateAccessToken = (user)=>{
@@ -72,12 +82,13 @@ const signUp = async(req,res)=>{
         const {firstName, lastName, userName, password, email,phone} = req.body
         console.log(req.body)
         const isEmailExists = await User.findOne({email})
-        if(!isEmailExists){
+        if(isEmailExists){
             res.status(409).json({message: 'User already exists'})
-        }else{
-            const {hashedPassword, salt} = await securePassword(password)
+        }
 
-            const user = await User.create({
+        const {hashedPassword, salt} = await securePassword(password)
+
+        const user = await User.create({
                 firstName,
                 lastName,
                 userName,
@@ -87,16 +98,16 @@ const signUp = async(req,res)=>{
                 phone,
             })
 
-            await user.save()
-            console.log("user created successfully")
-            await sendOTPVerificationEmail({id: user.id, email: user.email})
+        await user.save()
+        console.log("user created successfully")
+        await sendOTPVerificationEmail({id: user.id, email: user.email})
 
-            res.status(201).json({
+        res.status(201).json({
                 message: 'your account registered successfully, OTP sent to email',
                 userId: user._id,
                 email: email
             })
-        }
+        
     }catch(error){
        console.error('Singup error', error.message)
        res.status(500).json({message: error.message || 'Something went wrong'})

@@ -21,6 +21,10 @@ const userSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    salt:{
+        type: String,
+        required: true
+    },
     phone: {
         type: String,
         required: true
@@ -30,7 +34,7 @@ const userSchema = new mongoose.Schema({
         default: false
     },
     isAdmin: {
-        type: boolean,
+        type: Boolean,
         default: false
     },
     refreshToken: {
@@ -52,9 +56,7 @@ const userSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
-    salt:{
-        type: String
-    }
+
 },
 {
     timestamps: true

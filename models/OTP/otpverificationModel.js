@@ -10,14 +10,14 @@ const otpverificationSchema = new mongoose.Schema({
         type:String,
         required:true
      },
-     CreatedAt: {
+     createdAt: {
         type: Date,
         required: true
      },
-     exporesAt: {
+     expiresAt : {
         type: Date,
         required: true
      }
 })
 
-module.exports = mongoose.models.otpverification || mongoose.models('otpVerification', otpverificationSchema)
+module.exports = mongoose.models.otpverification || mongoose.model('otpVerification', otpverificationSchema)

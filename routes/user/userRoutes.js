@@ -1,9 +1,9 @@
 const express = require('express')
 const userRoute = express.Router()
-const {signup, verifyOTP, resendOTP, refreshTokenController, login , getUserData} = require('../../controllers/User/userController')
+const {signUp, verifyOTP, resendOTP, refreshTokenController, login , getUserData} = require('../../controllers/User/userController')
 const {getProfileData, updateUserProfile, changePassword, profileImageUpdate} = require('../../controllers/User/userDashboard')
 // post methods
-userRoute.post('/signup', signup)
+userRoute.post('/signup', signUp)
 userRoute.post('/verifyOTP', verifyOTP)
 userRoute.post('/resendOTP', resendOTP)
 userRoute.post('/refresh-token', refreshTokenController)

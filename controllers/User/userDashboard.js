@@ -1,6 +1,6 @@
 const bcrypt = require('bcrypt');
 const User = require("../../models/User/userModel");
-
+const crypto = require('crypto')
 
 const getProfileData = async(req,res)=>{
     try{
@@ -186,3 +186,5 @@ module.exports = {
     changePassword,
     profileImageUpdate
 }
+
+

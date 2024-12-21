@@ -1,5 +1,5 @@
 const express =require("express")
-const User = require("../model/userModel")
+const User = require("../../models/User/userModel")
 
 
 const userCount = async(req,res)=>{
