@@ -35,38 +35,27 @@ authRoute.get('/login/failed', (req,res)=>{
 })
 
 
-authRoute.get('/login/failed', (req,res)=>{
-    res.status(401).json({
-        error: true,
-        message: 'Log in failure'
-    })
-})
 
 
-authRoute.get('/login/success', (req,res)=>{
-    if(req.user){
-        res.status(200).json({
-            error: false,
-            message: 'Successfully logged in',
-            user:{
-                id: req.user._id,
-                firstName: req.user.firstName,
-                lastName: req.user.lastName,
-                userName: req.user.userName,
-                email: req.user.email,
-                isGoogleUser: req.user.isGoogleUser
-            }
-        })
-    }else{
-        res.status(404).json({
-            error: true,
-            messaage: 'Not authorized'
-        })
-    }
-})
+
+authRoute.get('/login/success', (req, res) => {
+  if (req.user) {
+      console.log('User is logged in:', req.user); // Add this for debugging
+      res.status(200).json({
+          error: false,
+          message: 'Successfully logged in',
+          user: { /* user data */ }
+      });
+  } else {
+      res.status(404).json({
+          error: true,
+          message: 'Not authorized'
+      });
+  }
+});
 
 
-authRoute.post("/logout", (req, res) => {
+authRoute.get("/logout", (req, res) => {
     try {
       // Use req.logout() with a callback to handle potential errors
       req.logout((err) => {

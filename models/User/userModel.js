@@ -19,15 +19,15 @@ const userSchema = new mongoose.Schema({
     },
     password: {
         type: String,
-        required: true
+        required: function() { return !this.isGoogleUser; } // Only required for non-Google users
     },
     salt:{
         type: String,
-        required: true
+        required: function() { return !this.isGoogleUser; }
     },
     phone: {
         type: String,
-        required: true
+        required: false
     },
     verified: {
         type: Boolean,
@@ -44,13 +44,13 @@ const userSchema = new mongoose.Schema({
         type: String,
         default: null
     },
-    isGoogleUSer: {
+    isGoogleUser: {
         type: Boolean,
         default: false
     },
-    profileImage: {
+    profileImage: {  // Updated field for storing image URL
         type: String,
-        default: null
+        default: null,
     },
     isBlocked: {
         type: Boolean,

@@ -163,6 +163,7 @@ const profileImageUpdate = async(req,res)=>{
                 profileImage: updatedUser.profileImage
             }
         })
+        
     }catch(error){
         console.error('Error updating profile image', error)
 
