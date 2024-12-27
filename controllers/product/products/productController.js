@@ -4,14 +4,14 @@ const getProductData = async(req,res)=>{
     try{
         const products = await Product.find().populate('category','categoryName')
         if(!products || products.length===0){
-            return res.status(404).josn({
+            return res.status(404).json({
                 error: 'No products found'
             })
         }
 
-        return res.status(200).json(prodicts)
+        return res.status(200).json(products)
     }catch(error){
-        console.error('Detailed Product Fetch Error: ', err)
+        console.error('Detailed Product Fetch Error: ', error)
         return res.status(500).json({
             error: 'Failed to fetch products',
             details: error.message,
@@ -42,7 +42,7 @@ const addProduct = async(req,res)=>{
 
         const processedVariants = variants.map(variant =>({
             size: variant.size,
-            price: parseFloate(variant.price),
+            price: parseFloat(variant.price),
             stock: parseInt(variant.stock)
         }))
 
@@ -65,11 +65,13 @@ const addProduct = async(req,res)=>{
             product: newProduct
         })
     }catch(error){
-            if(error.name === 'validationError')P
+        if (error.name === 'ValidationError') {
             return res.status(400).json({
                 message: 'Validation Error',
-                errors: Object.values(error.errors).map(err=> err.message)
+                errors: Object.values(error.errors).map(err => err.message)
             })
+        }
+        
     }
 
     if(error.code === 11000){
@@ -90,7 +92,7 @@ const softDeleteProduct = async(req,res)=>{
         const productId = req.params.details
         const {isDeleted} = req.body
 
-        const updatedProduct = await Product.findByIdAndUpdates(
+        const updatedProduct = await Product.findByIdAndUpdate(
             productId,
             {isDeleted},
             {new: true}

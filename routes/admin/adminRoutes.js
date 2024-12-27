@@ -29,7 +29,6 @@ adminRoute.put('/softdeleteproduct/:id',softDeleteProduct);
 
 // put methods
 adminRoute.put('/block/:id', isBlock)
-adminRoute.put('/block/:id',isBlock);
 
 
 

@@ -1,7 +1,7 @@
 const express = require("express");
 const passport = require("passport");
 const authRoute = express.Router();
-
+const checkIfBlocked = require('../../middleware/checkIfBlocked')
 
 const protect = (req, res, next)=>{
     if(req.isAuthenticated()){
@@ -14,6 +14,7 @@ const protect = (req, res, next)=>{
 }
 
 
+
 authRoute.get('/google/callback',
     passport.authenticate('google',{
         successRedirect: 'http://localhost:5173/user/home',
@@ -21,11 +22,7 @@ authRoute.get('/google/callback',
     })
 )
 
-authRoute.get('/google',
-    passport.authenticate('google',{
-        scope: ['profile', 'email']
-    })
-)
+
 
 authRoute.get('/login/failed', (req,res)=>{
     res.status(401).json({
