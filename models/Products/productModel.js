@@ -7,7 +7,7 @@ const productSchema = new mongoose.Schema({
   },
   category: {
     type: mongoose.Schema.Types.ObjectId,
-    ref:'category',
+    ref: 'category',
     required: true,
   },
   brand: {
@@ -27,12 +27,12 @@ const productSchema = new mongoose.Schema({
   variants: [{
     size: { type: String, required: true },
     price: { type: Number, required: true, min: 0 },
+    discount: { type: Number, default: 0, min: 0, max: 100 },
+    finalPrice: { type: Number, min: 0 },
     stock: { type: Number, required: true, min: 0 },
   }]
-  
 }, {
   timestamps: true  
 });
 
 module.exports = mongoose.models.Product || mongoose.model("product", productSchema);
-
