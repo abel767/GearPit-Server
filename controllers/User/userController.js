@@ -6,7 +6,7 @@ const otpVerification = require('../../models/OTP/otpverificationModel');
 const crypto = require('crypto');
 const mongoose = require('mongoose')
 
-// Hashing the password securely
+// Hashing the password securely with salt 
 const securePassword = async (password) => {
     try {
         const saltRounds = 10;
@@ -314,7 +314,6 @@ const getUserData = async (req, res) => {
     }
 };
 
-// Logout
 const logout = async (req, res) => {
     try {
         // Clear JWT tokens
