@@ -84,7 +84,7 @@ const refreshTokenController = async (req, res) => {
 // Sign-up
 const signUp = async (req, res) => {
     try {
-        const { firstName, lastName, userName, password, email, phone } = req.body;
+        const { firstName, lastName, userName, password, email, phone, profileImage } = req.body;
 
         const isEmailExists = await User.findOne({ email });
         if (isEmailExists) {
@@ -101,6 +101,7 @@ const signUp = async (req, res) => {
             password: hashedPassword,
             salt,
             phone,
+            profileImage
         });
 
         await user.save();
@@ -111,12 +112,18 @@ const signUp = async (req, res) => {
             message: 'Your account has been registered successfully. OTP sent to email.',
             userId: user._id,
             email,
+            profileImage: user.profileImage
         });
+
     } catch (error) {
         console.error('Sign-up error:', error.message);
         res.status(500).json({ message: error.message || 'Something went wrong' });
     }
+    
+    
 };
+
+
 
 // Send OTP Verification Email
 const sendOTPVerificationEmail = async ({ id, email }) => {
@@ -254,11 +261,17 @@ const login = async (req, res) => {
             message: 'User login successful',
             user: {
                 id: user._id,
-                name: user.username,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                userName: user.userName,
                 email: user.email,
                 phone: user.phone,
                 profileImage: user.profileImage,
+                isAdmin: user.isAdmin
+
             },
+            token: accessToken
+
         });
     } catch (error) {
         console.error('Error during login:', error.message);
@@ -284,7 +297,17 @@ const getUserData = async (req, res) => {
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
-        res.json(user);
+        res.json({
+            id: user._id,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            userName: user.userName,
+            email: user.email,
+            phone: user.phone,
+            profileImage: user.profileImage,
+            isAdmin: user.isAdmin,
+            verified: user.verified
+        });
     } catch (error) {
         console.error('Error fetching user data:', error.message);
         res.status(500).json({ message: 'Error fetching user data' });
@@ -294,6 +317,7 @@ const getUserData = async (req, res) => {
 // Logout
 const logout = async (req, res) => {
     try {
+        // Clear JWT tokens
         res.clearCookie('accessToken', {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
@@ -306,11 +330,23 @@ const logout = async (req, res) => {
             sameSite: 'strict',
         });
 
+        // If this was a Google OAuth session, clear it too
+        if (req.session) {
+            req.session.destroy((err) => {
+                if (err) {
+                    console.error('Error destroying session:', err);
+                }
+            });
+        }
+
         res.json({ message: 'Logged out successfully' });
     } catch (error) {
+        console.error('Logout error:', error);
         res.status(500).json({ message: 'Logout failed' });
     }
 };
+
+
 
 module.exports = {
     signUp,

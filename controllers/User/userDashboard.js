@@ -45,6 +45,7 @@ const updateUserProfile = async (req,res)=>{
             {
                 firstName: formData.firstName,
                 lastName: formData.lastName,
+                userName: formData.userName,
                 email: formData.email,
                 phone: formData.phone
             },
