@@ -15,6 +15,7 @@ const userRoutes = require('./routes/user/userRoutes');
 const adminRoutes = require('./routes/admin/adminRoutes');
 const authRoute = require('./routes/auth/authRoute');
 
+
 const app = express();
 
 // CORS Options

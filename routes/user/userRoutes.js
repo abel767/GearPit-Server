@@ -6,6 +6,8 @@ const {signUp, verifyOTP, resendOTP, refreshTokenController, login ,logout, getU
 const {getProfileData, updateUserProfile, changePassword, profileImageUpdate} = require('../../controllers/User/userDashboard')
 // user addresses controller
 const {addAddress, getAddresses, updateAddress, deleteAddress} = require('../../controllers/User/userAddressController')
+// order controllers
+const { createOrder, getOrderById } = require('../../controllers/Order/orderController');
 
 // post methods
 userRoute.post('/signup', signUp)
@@ -14,7 +16,6 @@ userRoute.post('/resendOTP', resendOTP)
 userRoute.post('/refresh-token', refreshTokenController)
 userRoute.post('/login',login)
 userRoute.post('/logout', logout)
-
 
 // user data route
 userRoute.get('/getuserdata/:id',getUserData)
@@ -31,5 +32,8 @@ userRoute.get('/address/:id', getAddresses)
 userRoute.put('/address/:id/:addressId', updateAddress)
 userRoute.delete('/address/:id/:addressId', deleteAddress)
 
-module.exports = userRoute
+// Order routes
+userRoute.post('/orders', createOrder); // Route to create a new order
+userRoute.get('/orders/:orderId', getOrderById); // Route to fetch order details by ID
 
+module.exports = userRoute
