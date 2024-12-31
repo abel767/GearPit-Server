@@ -4,7 +4,10 @@ const addAddress = async(req,res)=>{
     try{
         const {id} = req.params;
         const addressData = req.body
-    
+
+        console.log('Received address data:', addressData);
+        console.log('User ID:', id);
+
         const user = await User.findById(id)
         if(!user){
             return res.status(404).json({
@@ -19,14 +22,38 @@ const addAddress = async(req,res)=>{
                 message: 'You can add only 5 addresses'
             })
         }
+        const requiredFields = ['firstName', 'lastName', 'address', 'city', 'state', 'country', 'pincode', 'phoneNumber'];
+        const missingFields = requiredFields.filter(field => !addressData[field]);
+
+        if (missingFields.length > 0) {
+            return res.status(400).json({
+                success: false,
+                message: `Missing required fields: ${missingFields.join(', ')}`
+            });
+        }
+
+        const newAddress = {
+            firstName: addressData.firstName.trim(),
+            lastName: addressData.lastName.trim(),
+            address: addressData.address.trim(),
+            city: addressData.city.trim(),
+            state: addressData.state.trim(),
+            country: addressData.country.trim(),
+            pincode: addressData.pincode.trim(),
+            phoneNumber: addressData.phoneNumber.trim()
+        };
     
-        user.addresses.push(addressData)
+        user.addresses.push(newAddress)  // Use the sanitized newAddress object
         await user.save()
+
+        console.log('Updated addresses:', user.addresses);
     
         res.status(201).json({
             success: true,
             message: 'Address added successfully',
-            data: user.addresses
+            data: {
+                addresses: user.addresses  // Match the expected format
+            }
         })
     }catch(error){
         res.status(500).json({
@@ -35,9 +62,7 @@ const addAddress = async(req,res)=>{
             error: error.message
         })
     }
-    
 }
-
 
 const getAddresses = async(req,res)=>{
     try{
@@ -53,7 +78,9 @@ const getAddresses = async(req,res)=>{
 
         res.status(200).json({
             success: true,
-            addresses: user.addresses || []
+            data: {
+                addresses: user.addresses || []  // Match the expected format
+            }
         })
     }catch(error){
         res.status(500).json({
@@ -65,7 +92,6 @@ const getAddresses = async(req,res)=>{
 }
 
 const updateAddress = async(req,res)=>{
-
     try{
         const {id, addressId} = req.params
         const updateData = req.body
@@ -80,7 +106,7 @@ const updateAddress = async(req,res)=>{
             },
             {
                 new: true,
-                runvalidators: true
+                runValidators: true  // Fixed typo in runValidators
             }
         )
 
@@ -93,8 +119,10 @@ const updateAddress = async(req,res)=>{
 
         res.status(200).json({
             success: true,
-            message: 'Address updated succesfully',
-            addresses: user.addresses
+            message: 'Address updated successfully',
+            data: {
+                addresses: user.addresses  // Match the expected format
+            }
         })
     }catch(error){
          res.status(500).json({
@@ -103,9 +131,7 @@ const updateAddress = async(req,res)=>{
             error: error.message
          })
     }
-
 }
-
 
 const deleteAddress = async(req,res)=>{
     try{
@@ -116,7 +142,7 @@ const deleteAddress = async(req,res)=>{
                 $pull: {addresses: {_id:addressId}}
             },
             {
-                new:true
+                new: true
             }
         )
 
@@ -129,9 +155,10 @@ const deleteAddress = async(req,res)=>{
 
         res.status(200).json({
             success: true,
-            message: 'Address deleted succesfully',
-            addresses: user.addresses
-
+            message: 'Address deleted successfully',
+            data: {
+                addresses: user.addresses  // Match the expected format
+            }
         })
     }catch(error){
         res.status(500).json({
@@ -142,7 +169,7 @@ const deleteAddress = async(req,res)=>{
     }
 }
 
-module.exports ={
+module.exports = {
     addAddress,
     getAddresses,
     updateAddress,
