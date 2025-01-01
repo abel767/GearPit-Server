@@ -3,39 +3,72 @@ const Product = require('../../models/Products/productModel');
 
 const createOrder = async (req, res) => {
     try {
+      console.log('Received order data:', req.body); // Debug log
+  
       const { userId, items, paymentMethod, totalAmount } = req.body;
   
-      // Log incoming request data for debugging
-      console.log('Creating order with:', req.body);
-  
-      // Validate required fields
-      if (!userId || !items || !items.length || !paymentMethod || !totalAmount) {
+      // Enhanced validation
+      if (!userId) {
         return res.status(400).json({
           success: false,
-          message: 'Missing required fields in the request body',
+          message: 'User ID is required'
         });
       }
   
-      // Validate stock and update quantities
-      for (const item of items) {
-        const product = await Product.findById(item.productId);
-        const variant = product.variants.id(item.variantId);
+      if (!items || !Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Order must contain at least one item'
+        });
+      }
   
+      if (!paymentMethod || !['cod', 'online'].includes(paymentMethod)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Valid payment method is required (cod or online)'
+        });
+      }
+  
+      if (!totalAmount || totalAmount <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Valid total amount is required'
+        });
+      }
+  
+      // Validate items and check stock
+      for (const item of items) {
+        if (!item.productId || !item.variantId || !item.quantity || !item.price) {
+          return res.status(400).json({
+            success: false,
+            message: 'Each item must have productId, variantId, quantity, and price'
+          });
+        }
+  
+        const product = await Product.findById(item.productId);
+        if (!product) {
+          return res.status(400).json({
+            success: false,
+            message: `Product not found: ${item.productId}`
+          });
+        }
+  
+        const variant = product.variants.id(item.variantId);
         if (!variant) {
           return res.status(400).json({
             success: false,
-            message: `Variant not found for product ${product.productName}`,
+            message: `Variant not found for product ${product.productName}`
           });
         }
   
         if (variant.stock < item.quantity) {
           return res.status(400).json({
             success: false,
-            message: `Insufficient stock for ${product.productName} - ${variant.size}`,
+            message: `Insufficient stock for ${product.productName} - ${variant.size}`
           });
         }
   
-        // Decrease stock
+        // Update stock
         variant.stock -= item.quantity;
         await product.save();
       }
@@ -43,16 +76,11 @@ const createOrder = async (req, res) => {
       // Create order
       const order = new Order({
         userId,
-        items: items.map((item) => ({
-          productId: item.productId,
-          variantId: item.variantId,
-          quantity: item.quantity,
-          price: item.price,
-        })),
+        items,
         paymentMethod,
         totalAmount,
         status: 'pending',
-        paymentStatus: paymentMethod === 'cod' ? 'pending' : 'paid',
+        paymentStatus: paymentMethod === 'cod' ? 'pending' : 'paid'
       });
   
       await order.save();
@@ -62,19 +90,18 @@ const createOrder = async (req, res) => {
         message: 'Order created successfully',
         data: {
           orderId: order._id,
-          orderNumber: `GPI${Math.floor(100000 + Math.random() * 900000)}`,
-        },
+          orderNumber: order.orderNumber
+        }
       });
     } catch (error) {
-      console.error('Order creation error:', error); // Log error details
+      console.error('Order creation error:', error);
       res.status(500).json({
         success: false,
         message: 'Failed to create order',
-        error: error.message,
+        error: error.message
       });
     }
   };
-  
 
 const getOrderById = async (req, res) => {
   try {
