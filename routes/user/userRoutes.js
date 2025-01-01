@@ -7,7 +7,7 @@ const {getProfileData, updateUserProfile, changePassword, profileImageUpdate} = 
 // user addresses controller
 const {addAddress, getAddresses, updateAddress, deleteAddress} = require('../../controllers/User/userAddressController')
 // order controllers
-const { createOrder, getOrderById } = require('../../controllers/Order/orderController');
+const { createOrder, getOrderById, getOrders, cancelOrder } = require('../../controllers/Order/orderController');
 
 // post methods
 userRoute.post('/signup', signUp)
@@ -33,7 +33,8 @@ userRoute.put('/address/:id/:addressId', updateAddress)
 userRoute.delete('/address/:id/:addressId', deleteAddress)
 
 // Order routes
-userRoute.post('/orders', createOrder); // Route to create a new order
-userRoute.get('/orders/:orderId', getOrderById); // Route to fetch order details by ID
-
+userRoute.post('/orders', createOrder); 
+userRoute.get('/orders/detail/:orderId', getOrderById);  // For getting single order
+userRoute.get('/orders/user/:userId', getOrders);        // For getting user's orders
+userRoute.put('/orders/:orderId/cancel', cancelOrder);
 module.exports = userRoute

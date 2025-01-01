@@ -130,7 +130,105 @@ const getOrderById = async (req, res) => {
   }
 };
 
+
+const getOrders = async (req, res) => {
+  try {
+    const orders = await Order.find({ userId: req.params.userId })
+      .populate('items.productId', 'productName')
+      .sort({ createdAt: -1 });
+    
+    res.json({
+      success: true,
+      data: orders
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch orders',
+      error: error.message
+    });
+  }
+};
+
+
+const cancelOrder = async (req, res) => {
+  try {
+    console.log('Attempting to cancel order:', req.params.orderId);
+
+    // Find order and populate product information
+    const order = await Order.findById(req.params.orderId)
+      .populate('items.productId');
+
+    if (!order) {
+      console.log('Order not found:', req.params.orderId);
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found'
+      });
+    }
+
+    console.log('Current order status:', order.status);
+
+    // Check if order can be cancelled
+    if (['delivered', 'cancelled'].includes(order.status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot cancel order in ${order.status} status`
+      });
+    }
+
+    try {
+      // Update order status using the correct lowercase value
+      order.status = 'cancelled';
+      await order.save();
+
+      // Restore product stock
+      for (const item of order.items) {
+        const product = item.productId;
+        if (product && product.variants) {
+          const variant = product.variants.id(item.variantId);
+          if (variant) {
+            variant.stock += item.quantity;
+            await product.save();
+          }
+        }
+      }
+
+      console.log('Order cancelled successfully:', req.params.orderId);
+      return res.json({
+        success: true,
+        message: 'Order cancelled successfully',
+        data: {
+          orderId: order._id,
+          status: order.status,
+          orderNumber: order.orderNumber
+        }
+      });
+
+    } catch (saveError) {
+      console.error('Error during order cancellation process:', saveError);
+      throw saveError;
+    }
+
+  } catch (error) {
+    console.error('Order cancellation failed:', {
+      orderId: req.params.orderId,
+      error: error.message,
+      stack: error.stack
+    });
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to cancel order',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
+  }
+};
+
+
 module.exports = {
   createOrder,
   getOrderById,
+  getOrders,
+  cancelOrder
 };
