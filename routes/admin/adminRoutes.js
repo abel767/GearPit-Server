@@ -28,6 +28,12 @@ const {
   getCategoryById
 } = require("../../controllers/product/Category/categoryController");
 
+const {
+    getAllOrders,
+    updateOrderStatus,
+    getOrderStats
+  } = require("../../controllers/Admin/adminOrderController");
+
 // Admin authentication
 adminRoute.post("/login", adminLogin);
 
@@ -52,5 +58,11 @@ adminRoute.get("/productdata", getProductData);
 adminRoute.post("/addproduct", addProduct);
 adminRoute.put("/editproduct/:id", editProduct);
 adminRoute.put("/softdeleteproduct/:id", softDeleteProduct);
+
+// order routes
+// Order routes
+adminRoute.get("/orders", getAllOrders);
+adminRoute.patch("/orders/:orderId/status", updateOrderStatus);
+adminRoute.get("/order-stats", getOrderStats);
 
 module.exports = adminRoute;

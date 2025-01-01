@@ -13,7 +13,7 @@ const orderSchema = new mongoose.Schema({
   items: [{
     productId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Product',
+      ref: 'product',
       required: true
     },
     variantId: {
