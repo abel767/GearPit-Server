@@ -104,22 +104,38 @@ const getUserData = async (req, res) => {
 
 
 const isBlock = async (req, res) => {
-    try {
-        const userId = req.params.id;
-        const { isBlocked } = req.body;
+    try{
+        const userId = req.params.id
+        const {isBlocked} = req.body
 
-        const updatedUser = await User.findByIdAndUpdate(
+        if(!userId){
+            return res.status(400).json({message: 'User ID is required'})
+        }
+
+        const user = await User.findById(userId)
+        if(!user){
+            return res.status(400).json({message: 'User not found'})
+        }
+
+        const updateUser = await User.findByIdAndUpdate(
             userId,
-            { isBlocked },
-            { new: true }
-        );
+            {
+                isBlocked
+            },
+            {new: true}
+        )
 
-        res.status(200).json(updatedUser);
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: "Error updating user status" });
+        res.status(200).json({
+            status: 'success',
+            message: isBlocked? 'User Blocked successfully' : 'User unblocked successfully',
+            user: updateUser
+        })
+    }catch(error){
+        console.error('Error in isBlock', error)
+        res.status(500).json({message: 'Error updating user status'})
     }
 };
+
 
 module.exports = {
     adminLogin,

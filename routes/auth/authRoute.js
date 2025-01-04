@@ -1,7 +1,8 @@
 const express = require("express");
 const passport = require("passport");
 const authRoute = express.Router();
-const checkIfBlocked = require('../../middleware/checkIfBlocked')
+const checkIfBlocked = require('../../middleware/checkIfBlocked');
+const { token } = require("morgan");
 
 
 
@@ -27,13 +28,21 @@ authRoute.get('/login/failed', (req,res)=>{
 
 
 
-authRoute.get('/login/success', (req, res) => {
+authRoute.get('/login/success', checkIfBlocked ,(req, res) => {
   if (req.user) {
       console.log('User is logged in:', req.user); // Add this for debugging
       res.status(200).json({
           error: false,
           message: 'Successfully logged in',
-          user: { /* user data */ }
+          user: { 
+            id: req.user.id,
+            firstName: req.user.firstName,
+            lastName: req.user.lastName,
+            email: req.user.email,
+            profileImage: req.user.profileImage,
+            isAdmin: req.user.isAdmin
+           },
+           token: token
       });
   } else {
       res.status(404).json({

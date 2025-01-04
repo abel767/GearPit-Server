@@ -1,5 +1,6 @@
 const express = require('express')
 const userRoute = express.Router()
+
 // user register and login contorller
 const {signUp, verifyOTP, resendOTP, refreshTokenController, login ,logout, getUserData} = require('../../controllers/User/userController')
 // user profile controllers

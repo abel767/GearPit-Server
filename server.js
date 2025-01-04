@@ -6,7 +6,7 @@ const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth2').Strategy;
-
+const jwt = require('jsonwebtoken')
 // Models
 const User = require('./models/User/userModel');
 
@@ -51,9 +51,13 @@ passport.use(
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
-        console.log(profile)
+        console.log('Google profile', profile)
         let user = await User.findOne({ googleId: profile.id });
         
+        const profileImage = profile.photos && profile.photos.length > 0
+        ? profile.photos[0].value.replace('=s96-c', '=s400-c')
+        : null;
+
         if (!user) {
           user = new User({
             firstName: profile.name.givenName,
@@ -62,14 +66,24 @@ passport.use(
             email: profile.emails[0].value,
             googleId: profile.id,
             isGoogleUser: true,
-            profileImage: profile.photos && profile.photos.length > 0 
-             ? profile.photos[0].value 
-             : 'default_profile_image_url'
-           
+            verified: true,
+            profileImage: profileImage,
           });
           
           await user.save();
+        }else if(profileImage && user.profileImage !== profileImage){
+          user.profileImage = profileImage;
+          await user.save()
         }
+
+        const jwtAccessToken = jwt.sign(
+          { userId: user._id, email: user.email },
+          process.env.ACCESS_TOKEN_SECRET,  // Make sure this environment variable is set
+          { expiresIn: '15m' }
+      );
+
+        
+        user.accessToken = jwtAccessToken
         
         return done(null, user);
       } catch (error) {
