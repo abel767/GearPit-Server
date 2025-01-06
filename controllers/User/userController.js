@@ -267,7 +267,8 @@ const login = async (req, res) => {
                 email: user.email,
                 phone: user.phone,
                 profileImage: user.profileImage,
-                isAdmin: user.isAdmin
+                isAdmin: user.isAdmin,
+                isBlocked: user.isBlocked
 
             },
             token: accessToken
@@ -314,6 +315,46 @@ const getUserData = async (req, res) => {
     }
 };
 
+const checkBlockStatus = async (req, res) => {
+    try {
+        const userId = req.params.userId;
+        
+        if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+            return res.status(400).json({ 
+                message: 'Invalid user ID',
+                isBlocked: false 
+            });
+        }
+
+        const user = await User.findById(userId);
+        
+        if (!user) {
+            return res.status(404).json({ 
+                message: 'User not found',
+                isBlocked: false 
+            });
+        }
+
+        if (user.isBlocked) {
+            return res.status(403).json({ 
+                message: 'User is blocked',
+                isBlocked: true 
+            });
+        }
+
+        return res.json({ 
+            message: 'User is not blocked',
+            isBlocked: false 
+        });
+    } catch (error) {
+        console.error('Error checking block status:', error);
+        return res.status(500).json({ 
+            message: 'Error checking block status',
+            isBlocked: false 
+        });
+    }
+};
+
 const logout = async (req, res) => {
     try {
         // Clear JWT tokens
@@ -353,6 +394,7 @@ module.exports = {
     resendOTP,
     refreshTokenController,
     login,
+    checkBlockStatus,
     logout,
     getUserData,
 };

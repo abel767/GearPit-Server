@@ -20,7 +20,7 @@ const userSchema = new mongoose.Schema({
     },
     password: {
         type: String,
-        required: function() { return !this.isGoogleUser; } // Only required for non-Google users
+        required: function() { return !this.isGoogleUser; }
     },
     salt:{
         type: String,
@@ -75,6 +75,9 @@ const userSchema = new mongoose.Schema({
     refreshToken: {
         type: String
     },
+    adminRefreshToken: {     // Added new field for admin refresh token
+        type: String
+    },
     googleId: {
         type: String,
         default: null
@@ -83,7 +86,7 @@ const userSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
-    profileImage: {  // Updated field for storing image URL
+    profileImage: {
         type: String,
         default: null,
     },
@@ -91,7 +94,6 @@ const userSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
-
 },
 {
     timestamps: true

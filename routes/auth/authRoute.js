@@ -2,7 +2,6 @@ const express = require("express");
 const passport = require("passport");
 const jwt = require('jsonwebtoken');
 const authRoute = express.Router();
-const checkIfBlocked = require('../../middleware/checkIfBlocked');
 
 // Session verification middleware
 const verifySession = (req, res, next) => {
@@ -69,7 +68,7 @@ authRoute.get('/google/callback',
 );
 
 // Modified login success endpoint
-authRoute.get('/login/success', verifySession, checkIfBlocked, async (req, res) => {
+authRoute.get('/login/success', verifySession, async (req, res) => {
     try {
         if (!req.user) {
             return res.status(403).json({

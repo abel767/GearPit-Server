@@ -5,6 +5,7 @@ const {
   adminLogin,
   getUserData,
   isBlock,
+  adminLogout
 } = require("../../controllers/Admin/adminController");
 
 const { cloudinaryImageUpload } = require("../../controllers/cloudinary/cloudinaryController");
@@ -36,6 +37,7 @@ const {
 
 // Admin authentication
 adminRoute.post("/login", adminLogin);
+adminRoute.post("/logout", adminLogout);
 
 // User management
 adminRoute.get("/data", getUserData);

@@ -4,27 +4,32 @@ const bcrypt = require('bcrypt');
 require("dotenv").config();
 const jwt = require('jsonwebtoken');
 
-const generateAccessToken = (user) => {
+
+const generateAdminAccessToken = (user) => {
     return jwt.sign(
         { 
             userId: user._id, 
-            email: user.email 
+            email: user.email,
+            role: 'admin'  // Add role to token
         }, 
         process.env.ACCESS_TOKEN_SECRET, 
         { expiresIn: '15m' }
     );
 };
 
-const generateRefreshToken = (user) => {
+const generateAdminRefreshToken = (user) => {
     return jwt.sign(
         { 
             userId: user._id, 
-            email: user.email 
+            email: user.email,
+            role: 'admin'  // Add role to token
         }, 
         process.env.REFRESH_TOKEN_SECRET, 
         { expiresIn: '7d' }
     );
 };
+
+
 
 const adminLogin = async (req, res) => {
     try {
@@ -46,23 +51,24 @@ const adminLogin = async (req, res) => {
         }
 
         // Generate tokens
-        const accessToken = generateAccessToken(adminInfo);
-        const refreshToken = generateRefreshToken(adminInfo);
+        const accessToken = generateAdminAccessToken(adminInfo);
+        const refreshToken = generateAdminRefreshToken(adminInfo);
 
         // Save refresh token in the database
         await User.updateOne({ _id: adminInfo._id }, {
-            refreshToken: refreshToken 
+            adminRefreshToken: refreshToken  // Store in separate field
         });
 
+
         // Send cookies
-        res.cookie('accessToken', accessToken, {
+        res.cookie('adminAccessToken', accessToken, {
             httpOnly: true,
             secure: false,  // Change to true in production for HTTPS
             sameSite: 'strict',
             maxAge: 15 * 60 * 1000 // 15 minutes
         });
 
-        res.cookie('refreshToken', refreshToken, {
+        res.cookie('adminRefreshToken', refreshToken, {
             httpOnly: true,
             secure: false,  // Change to true in production for HTTPS
             sameSite: 'strict',
@@ -137,8 +143,42 @@ const isBlock = async (req, res) => {
 };
 
 
+
+const adminLogout = async (req, res) => {
+    try {
+        res.clearCookie('admin_access_token', {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+        });
+
+        res.clearCookie('admin_refresh_token', {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+        });
+
+        // Clear admin refresh token from database
+        const adminId = req.user?.userId;
+        if (adminId) {
+            await User.updateOne(
+                { _id: adminId },
+                { $unset: { adminRefreshToken: "" } }
+            );
+        }
+
+        res.json({ message: 'Admin logged out successfully' });
+    } catch (error) {
+        console.error('Admin logout error:', error);
+        res.status(500).json({ message: 'Admin logout failed' });
+    }
+};
+
+
+
 module.exports = {
     adminLogin,
     getUserData,
     isBlock,
+    adminLogout
 };

@@ -2,13 +2,18 @@ const express = require('express')
 const userRoute = express.Router()
 
 // user register and login contorller
-const {signUp, verifyOTP, resendOTP, refreshTokenController, login ,logout, getUserData} = require('../../controllers/User/userController')
+const {signUp, verifyOTP, resendOTP, refreshTokenController, login ,logout, getUserData, checkBlockStatus} = require('../../controllers/User/userController')
 // user profile controllers
 const {getProfileData, updateUserProfile, changePassword, profileImageUpdate} = require('../../controllers/User/userDashboard')
 // user addresses controller
 const {addAddress, getAddresses, updateAddress, deleteAddress} = require('../../controllers/User/userAddressController')
 // order controllers
 const { createOrder, getOrderById, getOrders, cancelOrder } = require('../../controllers/Order/orderController');
+
+//
+userRoute.get('/check-block-status/:userId', checkBlockStatus);
+
+
 
 // post methods
 userRoute.post('/signup', signUp)
@@ -39,3 +44,6 @@ userRoute.get('/orders/detail/:orderId', getOrderById);  // For getting single o
 userRoute.get('/orders/user/:userId', getOrders);        // For getting user's orders
 userRoute.put('/orders/:orderId/cancel', cancelOrder);
 module.exports = userRoute
+
+
+
