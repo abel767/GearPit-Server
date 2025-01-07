@@ -1,11 +1,12 @@
 const Order = require('../../models/Order/orderModel');
 const Product = require('../../models/Products/productModel');
 
+
 const createOrder = async (req, res) => {
     try {
       console.log('Received order data:', req.body); // Debug log
   
-      const { userId, items, paymentMethod, totalAmount } = req.body;
+      const { userId, items, paymentMethod, totalAmount, shippingAddress } = req.body;
   
       // Enhanced validation
       if (!userId) {
@@ -33,6 +34,16 @@ const createOrder = async (req, res) => {
         return res.status(400).json({
           success: false,
           message: 'Valid total amount is required'
+        });
+      }
+
+      // Validate shipping address
+      if (!shippingAddress || !shippingAddress.firstName || !shippingAddress.address || 
+          !shippingAddress.city || !shippingAddress.state || !shippingAddress.pincode || 
+          !shippingAddress.phoneNumber) {
+        return res.status(400).json({
+          success: false,
+          message: 'Complete shipping address is required'
         });
       }
   
@@ -73,12 +84,13 @@ const createOrder = async (req, res) => {
         await product.save();
       }
   
-      // Create order
+      // Create order with shipping address
       const order = new Order({
         userId,
         items,
         paymentMethod,
         totalAmount,
+        shippingAddress,
         status: 'pending',
         paymentStatus: paymentMethod === 'cod' ? 'pending' : 'paid'
       });
@@ -102,7 +114,6 @@ const createOrder = async (req, res) => {
       });
     }
   };
-
 const getOrderById = async (req, res) => {
   try {
     const order = await Order.findById(req.params.orderId)
