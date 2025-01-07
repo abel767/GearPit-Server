@@ -1,7 +1,7 @@
 const Cart = require('../../models/ShoppingCart/cartModel')
 const Product = require('../../models/Products/productModel')
 
-exports.addToCart = async (req, res) => {
+const addToCart = async (req, res) => {
     try {
       const { userId, productId, variantId, quantity } = req.body;
   
@@ -57,7 +57,7 @@ exports.addToCart = async (req, res) => {
   };
   
   // Get cart
-  exports.getCart = async (req, res) => {
+  const getCart = async (req, res) => {
     try {
       const { userId } = req.params;
       const cart = await Cart.findOne({ userId })
@@ -74,7 +74,7 @@ exports.addToCart = async (req, res) => {
   };
   
   // Update cart item quantity
-  exports.updateCartItem = async (req, res) => {
+  const updateCartItem = async (req, res) => {
     try {
       const { userId, productId, variantId, quantity } = req.body;
   
@@ -113,7 +113,7 @@ exports.addToCart = async (req, res) => {
   };
   
   // Remove item from cart
-  exports.removeFromCart = async (req, res) => {
+  const removeFromCart = async (req, res) => {
     try {
       const { userId, productId, variantId } = req.params;
   
@@ -140,3 +140,6 @@ exports.addToCart = async (req, res) => {
       res.status(500).json({ message: 'Error removing item from cart' });
     }
   };
+
+
+module.exports = {addToCart,getCart,updateCartItem, removeFromCart}

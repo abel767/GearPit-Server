@@ -13,6 +13,13 @@ const { createOrder, getOrderById, getOrders, cancelOrder } = require('../../con
 //
 userRoute.get('/check-block-status/:userId', checkBlockStatus);
 
+// cart 
+const { 
+    addToCart, 
+    getCart, 
+    updateCartItem, 
+    removeFromCart 
+} = require('../../controllers/Cart/cartController');
 
 
 // post methods
@@ -43,7 +50,13 @@ userRoute.post('/orders', createOrder);
 userRoute.get('/orders/detail/:orderId', getOrderById);  // For getting single order
 userRoute.get('/orders/user/:userId', getOrders);        // For getting user's orders
 userRoute.put('/orders/:orderId/cancel', cancelOrder);
+
+
+
+
+userRoute.post('/cart/add', addToCart);
+userRoute.get('/cart/:userId', getCart);
+userRoute.put('/cart/update', updateCartItem);
+userRoute.delete('/cart/remove/:userId/:productId/:variantId', removeFromCart);
+
 module.exports = userRoute
-
-
-
