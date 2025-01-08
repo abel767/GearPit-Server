@@ -17,7 +17,7 @@ const productSchema = new mongoose.Schema({
     type: [String],
     default: [],
   },
-  isDeleted: { 
+  isBlocked: {  
     type: Boolean, 
     default: false 
   },

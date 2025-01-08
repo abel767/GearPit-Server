@@ -67,7 +67,8 @@ const addProduct = async(req, res) => {
             brand: brand || undefined,
             description: description || null,
             images: images || [],
-            variants: processedVariants
+            variants: processedVariants,
+            isBlocked: false // Set default state as unblocked
         })
 
         await newProduct.save()
@@ -94,7 +95,7 @@ const addProduct = async(req, res) => {
     }
 }
 
-const softDeleteProduct = async (req, res) => {
+const toggleProductStatus = async (req, res) => {
     try {
         const productId = req.params.id;
 
@@ -102,22 +103,27 @@ const softDeleteProduct = async (req, res) => {
             return res.status(400).json({ message: "Product ID is required" });
         }
 
-        const updatedProduct = await Product.findByIdAndUpdate(
-            productId,
-            { isDeleted: true },
-            { new: true }
-        );
-
-        if (!updatedProduct) {
+        const product = await Product.findById(productId);
+        
+        if (!product) {
             return res.status(404).json({ message: "Product not found" });
         }
 
+        // Toggle the blocked status
+        const updatedProduct = await Product.findByIdAndUpdate(
+            productId,
+            { isBlocked: !product.isBlocked },
+            { new: true }
+        );
+
+        const statusMessage = updatedProduct.isBlocked ? 'blocked' : 'unblocked';
+        
         res.status(200).json({
-            message: "Product soft-deleted successfully",
+            message: `Product ${statusMessage} successfully`,
             product: updatedProduct,
         });
     } catch (error) {
-        handleControllerError(res, error, "Error soft-deleting product")
+        handleControllerError(res, error, "Error updating product status")
     }
 }
 
@@ -180,6 +186,6 @@ const editProduct = async(req, res) => {
 module.exports = {
     getProductData,
     addProduct,
-    softDeleteProduct,
+    toggleProductStatus,
     editProduct
 }

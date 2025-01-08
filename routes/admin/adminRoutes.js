@@ -15,7 +15,7 @@ const { userCount } = require("../../controllers/Admin/dashboardController");
 const {
   getProductData,
   addProduct,
-  softDeleteProduct,
+  toggleProductStatus,
   editProduct,
 } = require("../../controllers/product/products/productController");
 
@@ -59,7 +59,7 @@ adminRoute.get('/categorydata/:id', getCategoryById)
 adminRoute.get("/productdata", getProductData);
 adminRoute.post("/addproduct", addProduct);
 adminRoute.put("/editproduct/:id", editProduct);
-adminRoute.put("/softdeleteproduct/:id", softDeleteProduct);
+adminRoute.put("/toggleproductstatus/:id", toggleProductStatus); 
 
 // order routes
 // Order routes
