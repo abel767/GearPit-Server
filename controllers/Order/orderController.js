@@ -6,7 +6,7 @@ const createOrder = async (req, res) => {
     try {
       console.log('Received order data:', req.body); // Debug log
   
-      const { userId, items, paymentMethod, totalAmount, shippingAddress } = req.body;
+      const { userId, items, paymentMethod, paymentId, totalAmount, shippingAddress } = req.body; // Add paymentId here
   
       // Enhanced validation
       if (!userId) {
@@ -27,6 +27,13 @@ const createOrder = async (req, res) => {
         return res.status(400).json({
           success: false,
           message: 'Valid payment method is required (cod or online)'
+        });
+      }
+
+      if (paymentMethod === 'online' && !req.body.paymentId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Payment ID is required for online payments'
         });
       }
   
@@ -85,7 +92,7 @@ const createOrder = async (req, res) => {
       }
   
       // Create order with shipping address
-      const order = new Order({
+      const orderData = {
         userId,
         items,
         paymentMethod,
@@ -93,8 +100,14 @@ const createOrder = async (req, res) => {
         shippingAddress,
         status: 'pending',
         paymentStatus: paymentMethod === 'cod' ? 'pending' : 'paid'
-      });
-  
+      };
+
+      // Add paymentId if it exists
+      if (paymentMethod === 'online' && paymentId) {
+        orderData.paymentId = paymentId;
+      }
+
+      const order = new Order(orderData);
       await order.save();
   
       res.status(201).json({
@@ -102,9 +115,11 @@ const createOrder = async (req, res) => {
         message: 'Order created successfully',
         data: {
           orderId: order._id,
-          orderNumber: order.orderNumber
+          orderNumber: order.orderNumber,
+          status: order.status
         }
       });
+      
     } catch (error) {
       console.error('Order creation error:', error);
       res.status(500).json({
@@ -114,6 +129,9 @@ const createOrder = async (req, res) => {
       });
     }
   };
+
+
+
 const getOrderById = async (req, res) => {
   try {
     const order = await Order.findById(req.params.orderId)
@@ -162,6 +180,43 @@ const getOrders = async (req, res) => {
 };
 
 
+const getOrderStatus = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    
+    const order = await Order.findById(orderId)
+      .select('status orderNumber createdAt');
+      
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        orderId: order._id,
+        orderNumber: order.orderNumber,
+        status: order.status,
+        orderedAt: order.createdAt
+      }
+    });
+  } catch (error) {
+    console.error('Get order status error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch order status',
+      error: error.message
+    });
+  }
+};
+
+
+
+
+
 const cancelOrder = async (req, res) => {
   try {
     console.log('Attempting to cancel order:', req.params.orderId);
@@ -181,7 +236,7 @@ const cancelOrder = async (req, res) => {
     console.log('Current order status:', order.status);
 
     // Check if order can be cancelled
-    if (['delivered', 'cancelled'].includes(order.status)) {
+    if (!['pending', 'processing'].includes(order.status)) {
       return res.status(400).json({
         success: false,
         message: `Cannot cancel order in ${order.status} status`
@@ -193,17 +248,17 @@ const cancelOrder = async (req, res) => {
       order.status = 'cancelled';
       await order.save();
 
-      // Restore product stock
-      for (const item of order.items) {
-        const product = item.productId;
-        if (product && product.variants) {
-          const variant = product.variants.id(item.variantId);
-          if (variant) {
-            variant.stock += item.quantity;
-            await product.save();
-          }
-        }
+   // Restore product stock
+   for (const item of order.items) {
+    const product = item.productId;
+    if (product && product.variants) {
+      const variant = product.variants.id(item.variantId);
+      if (variant) {
+        variant.stock += item.quantity;
+        await product.save();
       }
+    }
+  }
 
       console.log('Order cancelled successfully:', req.params.orderId);
       return res.json({
@@ -241,5 +296,6 @@ module.exports = {
   createOrder,
   getOrderById,
   getOrders,
-  cancelOrder
+  cancelOrder,
+  getOrderStatus
 };

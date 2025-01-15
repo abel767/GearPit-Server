@@ -13,7 +13,6 @@ const categoryData = async (req, res) => {
     }
 };
 
-
 const addCategoryData = async (req, res) => {
     try {
         const { categoryName, description = '', isActive = true } = req.body;
@@ -34,6 +33,10 @@ const addCategoryData = async (req, res) => {
             categoryName: categoryName.trim(),
             description: description.trim(),
             isActive,
+            offer: {
+                percentage: 0,
+                isActive: false
+            }
         });
 
         const savedCategory = await newCategory.save();
@@ -50,6 +53,8 @@ const addCategoryData = async (req, res) => {
         });
     }
 };
+
+
 
 
 const categoryStatus = async(req,res)=>{
@@ -97,7 +102,7 @@ const getCategoryById = async (req, res) => {
 const categoryEdit = async (req, res) => {
     try {
         const { id } = req.params;
-        const { categoryName, description } = req.body;
+        const { categoryName, description, offer } = req.body;
 
         if (!categoryName || categoryName.trim() === '') {
             return res.status(400).json({ message: 'Category name is required' });
@@ -112,12 +117,19 @@ const categoryEdit = async (req, res) => {
             return res.status(409).json({ message: 'Category name already exists' });
         }
 
+        const updateData = {
+            categoryName: categoryName.trim(),
+            description: description ? description.trim() : '',
+        };
+
+        // Only update offer if it's provided
+        if (offer) {
+            updateData.offer = offer;
+        }
+
         const updatedCategory = await Category.findByIdAndUpdate(
             id,
-            {
-                categoryName: categoryName.trim(),
-                description: description ? description.trim() : '',
-            },
+            updateData,
             {
                 new: true,
                 runValidators: true,
@@ -131,14 +143,12 @@ const categoryEdit = async (req, res) => {
         res.status(200).json(updatedCategory);
     } catch (error) {
         console.error('Error updating category:', error);
-
         if (error.name === 'ValidationError') {
             return res.status(400).json({
                 message: 'Validation Error',
                 errors: Object.values(error.errors).map(err => err.message),
             });
         }
-
         return res.status(500).json({
             message: 'Server error',
             error: error.message,

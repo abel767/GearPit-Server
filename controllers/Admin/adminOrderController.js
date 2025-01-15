@@ -69,6 +69,14 @@ const updateOrderStatus = async (req, res) => {
       });
     }
 
+    // Prevent status update if order is already cancelled
+    if (order.status === 'cancelled') {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot update status of cancelled order'
+      });
+    }
+
     // Update status
     order.status = status;
     await order.save();

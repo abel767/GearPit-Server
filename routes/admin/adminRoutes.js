@@ -35,6 +35,33 @@ const {
     getOrderStats
   } = require("../../controllers/Admin/adminOrderController");
 
+
+// sales analytics
+const {
+  getTodayAnalytics,
+  getRevenueData,
+  getMostSoldCategories
+} = require("../../controllers/Admin/salesAnalyticController");
+
+
+// coupon admin side
+const {
+  createCoupon,
+  getAllCoupons,
+  toggleCouponStatus,
+  deleteCoupon
+} = require("../../controllers/Admin/couponController");
+
+//offers
+const {
+  addProductOffer,
+  removeProductOffer,
+  addCategoryOffer,
+  removeCategoryOffer,
+  getAllOffers
+} = require("../../controllers/Admin/offerController");
+
+
 // Admin authentication
 adminRoute.post("/login", adminLogin);
 adminRoute.post("/logout", adminLogout);
@@ -61,10 +88,28 @@ adminRoute.post("/addproduct", addProduct);
 adminRoute.put("/editproduct/:id", editProduct);
 adminRoute.put("/toggleproductstatus/:id", toggleProductStatus); 
 
-// order routes
 // Order routes
 adminRoute.get("/orders", getAllOrders);
 adminRoute.patch("/orders/:orderId/status", updateOrderStatus);
 adminRoute.get("/order-stats", getOrderStats);
+
+// sales route
+adminRoute.get("/sales/today-analytics", getTodayAnalytics);
+adminRoute.get("/sales/revenue", getRevenueData);
+adminRoute.get("/sales/most-sold-categories", getMostSoldCategories);
+
+// coupon route
+adminRoute.post("/coupons", createCoupon);
+adminRoute.get("/coupons", getAllCoupons);
+adminRoute.put("/coupons/:id/toggle", toggleCouponStatus);
+adminRoute.delete("/coupons/:id", deleteCoupon);
+
+// Offer routes
+adminRoute.post("/product-offer", addProductOffer);
+adminRoute.delete("/product-offer/:productId", removeProductOffer);
+adminRoute.post("/category-offer", addCategoryOffer);
+adminRoute.delete("/category-offer/:categoryId", removeCategoryOffer);
+adminRoute.get("/offers", getAllOffers);
+
 
 module.exports = adminRoute;
