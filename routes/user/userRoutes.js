@@ -2,7 +2,7 @@ const express = require('express')
 const userRoute = express.Router()
 
 const {authMiddleware} = require('../../middleware/authMiddleware')
-
+const {verifyToken} = require('../../middleware/auth')
 // user register and login contorller
 const {signUp, verifyOTP, resendOTP, refreshTokenController, login ,logout, getUserData, checkBlockStatus} = require('../../controllers/User/userController')
 // user profile controllers
@@ -29,6 +29,11 @@ const {
 // razor pay
 const {createPaymentOrder, verifyPayment} = require('../../controllers/razorpay/razorpayController')
 
+//wallet
+const { 
+    getWalletDetails, 
+    addRefundToWallet 
+} = require('../../controllers/wallet/walletController');
 
 // post methods
 userRoute.post('/signup', signUp)
@@ -75,5 +80,9 @@ userRoute.post("/validate-coupon",validateCoupon);
 userRoute.post('/apply-coupon', applyCoupon);
 userRoute.get('/valid-coupons', getValidCoupons);
 
+
+// wallet route
+userRoute.get('/wallet/:userId', getWalletDetails);        // Get wallet details and transactions
+userRoute.post('/wallet/refund', addRefundToWallet);       // Add refund to wallet
 
 module.exports = userRoute

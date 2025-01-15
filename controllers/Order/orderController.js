@@ -244,21 +244,48 @@ const cancelOrder = async (req, res) => {
     }
 
     try {
-      // Update order status using the correct lowercase value
+      // Update order status
       order.status = 'cancelled';
       await order.save();
 
-   // Restore product stock
-   for (const item of order.items) {
-    const product = item.productId;
-    if (product && product.variants) {
-      const variant = product.variants.id(item.variantId);
-      if (variant) {
-        variant.stock += item.quantity;
-        await product.save();
+      // Restore product stock
+      for (const item of order.items) {
+        const product = item.productId;
+        if (product && product.variants) {
+          const variant = product.variants.id(item.variantId);
+          if (variant) {
+            variant.stock += item.quantity;
+            await product.save();
+          }
+        }
       }
-    }
-  }
+
+      // Add refund to wallet
+      try {
+        const Wallet = require('../../models/wallet/walletModel'); // Add this at the top of the file
+        let wallet = await Wallet.findOne({ userId: order.userId });
+        
+        if (!wallet) {
+          wallet = new Wallet({ userId: order.userId, balance: 0 });
+        }
+
+        // Add refund amount to wallet
+        wallet.balance += order.totalAmount;
+        
+        // Add transaction record
+        wallet.transactions.push({
+          type: 'credit',
+          amount: order.totalAmount,
+          description: `Refund for order #${order.orderNumber}`,
+          orderId: order._id,
+          status: 'completed'
+        });
+
+        await wallet.save();
+      } catch (walletError) {
+        console.error('Wallet refund error:', walletError);
+        // Continue with order cancellation even if wallet update fails
+      }
 
       console.log('Order cancelled successfully:', req.params.orderId);
       return res.json({
@@ -267,7 +294,8 @@ const cancelOrder = async (req, res) => {
         data: {
           orderId: order._id,
           status: order.status,
-          orderNumber: order.orderNumber
+          orderNumber: order.orderNumber,
+          refundAmount: order.totalAmount
         }
       });
 
@@ -290,7 +318,6 @@ const cancelOrder = async (req, res) => {
     });
   }
 };
-
 
 module.exports = {
   createOrder,
