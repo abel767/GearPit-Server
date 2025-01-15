@@ -1,7 +1,7 @@
 const express = require('express')
 const userRoute = express.Router()
 
-const {authMiddleware} = require('../../middleware/authMiddleware')
+
 const {verifyToken} = require('../../middleware/auth')
 // user register and login contorller
 const {signUp, verifyOTP, resendOTP, refreshTokenController, login ,logout, getUserData, checkBlockStatus} = require('../../controllers/User/userController')

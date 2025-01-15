@@ -1,6 +1,6 @@
 const express = require("express");
 const adminRoute = express.Router();
-
+const {verifyAdmin} = require('../../middleware/auth')
 const {
   adminLogin,
   getUserData,
@@ -61,6 +61,13 @@ const {
   getAllOffers
 } = require("../../controllers/Admin/offerController");
 
+// sales report
+const{
+  getSalesReport,
+    downloadExcelReport,
+    downloadPdfReport
+} = require('../../controllers/Admin/salesReportController')
+
 
 // Admin authentication
 adminRoute.post("/login", adminLogin);
@@ -97,6 +104,11 @@ adminRoute.get("/order-stats", getOrderStats);
 adminRoute.get("/sales/today-analytics", getTodayAnalytics);
 adminRoute.get("/sales/revenue", getRevenueData);
 adminRoute.get("/sales/most-sold-categories", getMostSoldCategories);
+
+// Sales report routes
+adminRoute.get("/sales/report", getSalesReport);
+adminRoute.get("/sales/report/excel", downloadExcelReport);
+adminRoute.get("/sales/report/pdf", downloadPdfReport);
 
 // coupon route
 adminRoute.post("/coupons", createCoupon);

@@ -1,11 +1,12 @@
+// middleware/auth.js
 const jwt = require('jsonwebtoken');
+const User = require('../models/User/userModel');
 
+// Base token verification
 const verifyToken = (req, res, next) => {
     try {
-        // Check for token in cookies first
         let token = req.cookies.accessToken;
 
-        // If no cookie, check Authorization header
         if (!token && req.headers.authorization) {
             token = req.headers.authorization.split(' ')[1];
         }
@@ -19,7 +20,6 @@ const verifyToken = (req, res, next) => {
             req.user = decoded;
             next();
         } catch (err) {
-            // Token verification failed, try to refresh
             return handleTokenRefresh(req, res, next);
         }
     } catch (error) {
@@ -28,9 +28,10 @@ const verifyToken = (req, res, next) => {
     }
 };
 
+// Token refresh handler
 const handleTokenRefresh = async (req, res, next) => {
     try {
-        const refreshToken = req.cookies.refreshToken;
+        const refreshToken = req.cookies.refreshToken || req.cookies.adminRefreshToken;
         
         if (!refreshToken) {
             return res.status(401).json({ message: 'Refresh token not found' });
@@ -43,23 +44,30 @@ const handleTokenRefresh = async (req, res, next) => {
             return res.status(401).json({ message: 'User not found' });
         }
 
-        // Generate new tokens
+        // Generate new access token with role if present
+        const tokenPayload = {
+            userId: user._id,
+            email: user.email,
+            ...(decoded.role && { role: decoded.role })
+        };
+
         const newAccessToken = jwt.sign(
-            { userId: user._id, email: user.email },
+            tokenPayload,
             process.env.ACCESS_TOKEN_SECRET,
             { expiresIn: '15m' }
         );
 
-        // Set new access token in cookie
-        res.cookie('accessToken', newAccessToken, {
+        // Set appropriate cookie name based on user type
+        const cookieName = decoded.role === 'admin' ? 'adminAccessToken' : 'accessToken';
+
+        res.cookie(cookieName, newAccessToken, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
             maxAge: 15 * 60 * 1000
         });
 
-        // Update request with new user info
-        req.user = { userId: user._id, email: user.email };
+        req.user = tokenPayload;
         next();
     } catch (error) {
         console.error('Token refresh error:', error);
@@ -67,4 +75,33 @@ const handleTokenRefresh = async (req, res, next) => {
     }
 };
 
-module.exports = { verifyToken };
+// Admin authentication middleware
+const verifyAdmin = async (req, res, next) => {
+    try {
+        let token = req.cookies.adminAccessToken;
+
+        if (!token && req.headers.authorization) {
+            token = req.headers.authorization.split(' ')[1];
+        }
+
+        if (!token) {
+            return res.status(401).json({ message: 'Admin access denied' });
+        }
+
+        try {
+            const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+            if (decoded.role !== 'admin') {
+                return res.status(403).json({ message: 'Unauthorized: Admin access required' });
+            }
+            req.user = decoded;
+            next();
+        } catch (err) {
+            return handleTokenRefresh(req, res, next);
+        }
+    } catch (error) {
+        console.error('Admin auth middleware error:', error);
+        return res.status(401).json({ message: 'Admin authentication failed' });
+    }
+};
+
+module.exports = { verifyToken, verifyAdmin };
