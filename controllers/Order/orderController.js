@@ -6,7 +6,7 @@ const createOrder = async (req, res) => {
     try {
       console.log('Received order data:', req.body); // Debug log
   
-      const { userId, items, paymentMethod, paymentId, totalAmount, shippingAddress } = req.body; // Add paymentId here
+      const { userId, items, paymentMethod, paymentId, totalAmount, shippingAddress,appliedCoupon    } = req.body; // Add paymentId here
   
       // Enhanced validation
       if (!userId) {

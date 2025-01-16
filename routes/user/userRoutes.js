@@ -35,6 +35,13 @@ const {
     addRefundToWallet 
 } = require('../../controllers/wallet/walletController');
 
+// wishlist
+const { 
+    getWishlist, 
+    addToWishlist, 
+    removeFromWishlist 
+  } = require('../../controllers/wishlist/wishlistController');
+
 // post methods
 userRoute.post('/signup', signUp)
 userRoute.post('/verifyOTP', verifyOTP)
@@ -84,5 +91,11 @@ userRoute.get('/valid-coupons', getValidCoupons);
 // wallet route
 userRoute.get('/wallet/:userId', getWalletDetails);        // Get wallet details and transactions
 userRoute.post('/wallet/refund', addRefundToWallet);       // Add refund to wallet
+
+
+// wishlist
+userRoute.get('/wishlist/:userId',  getWishlist);
+userRoute.post('/wishlist/add',  addToWishlist);
+userRoute.delete('/wishlist/remove/:productId',removeFromWishlist);
 
 module.exports = userRoute
