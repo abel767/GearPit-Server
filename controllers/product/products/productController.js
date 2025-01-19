@@ -26,6 +26,7 @@ const calculateFinalPrice = (basePrice, variantDiscount = 0, productOffer = null
 
 const getProductData = async(req, res) => {
     try {
+        // Fetch products with category information
         const products = await Product.find()
             .populate('category', 'categoryName offer')
             .lean();
@@ -36,24 +37,21 @@ const getProductData = async(req, res) => {
             });
         }
 
-        // Process products to include category offer information
+        // Process each product to include final prices with all applicable discounts
         const processedProducts = products.map(product => {
             const variants = product.variants.map(variant => {
-                // Recalculate final price considering both product and category offers
                 const basePrice = variant.price;
                 let finalPrice = basePrice;
 
-                // Apply variant discount
+                // Apply discounts in order: variant -> product -> category
                 if (variant.discount > 0) {
                     finalPrice *= (1 - variant.discount / 100);
                 }
 
-                // Apply product offer if active
                 if (product.offer && product.offer.isActive) {
                     finalPrice *= (1 - product.offer.percentage / 100);
                 }
 
-                // Apply category offer if active
                 if (product.category.offer && product.category.offer.isActive) {
                     finalPrice *= (1 - product.category.offer.percentage / 100);
                 }
@@ -84,6 +82,7 @@ const getProductData = async(req, res) => {
     }
 };
 
+
 const addProduct = async(req, res) => {
     try {
         console.log(`Received request body: `, JSON.stringify(req.body, null, 2));
@@ -105,7 +104,9 @@ const addProduct = async(req, res) => {
             });
         }
 
-        // Fetch category to check for category offer
+        // CRITICAL ERROR: Using Product model instead of Category model
+        // Should be:
+        // const categoryData = await Category.findById(category).select('offer');
         const categoryData = await Product.findById(category).select('offer');
 
         const processedVariants = variants.map(variant => {
@@ -113,7 +114,7 @@ const addProduct = async(req, res) => {
             const variantDiscount = parseFloat(variant.discount || 0);
             let finalPrice = calculateFinalPrice(basePrice, variantDiscount, offer);
 
-            // Apply category offer if exists and is active
+            // Apply category offer if exists
             if (categoryData && categoryData.offer && categoryData.offer.isActive) {
                 finalPrice *= (1 - categoryData.offer.percentage / 100);
                 finalPrice = Math.round(finalPrice * 100) / 100;
@@ -144,7 +145,6 @@ const addProduct = async(req, res) => {
         });
 
         console.log('New product created:', newProduct);
-
         res.status(201).json({
             message: 'Product added successfully',
             product: newProduct

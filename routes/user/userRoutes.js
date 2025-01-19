@@ -54,48 +54,48 @@ userRoute.post('/logout', logout)
 userRoute.get('/getuserdata/:id',getUserData)
 
 // profile routes 
-userRoute.get('/profile/:id', getProfileData)
-userRoute.put('/profileupdate/:id', updateUserProfile)
-userRoute.put('/change-password/:id', changePassword)
-userRoute.put('/profileImageupdate/:id', profileImageUpdate)
+userRoute.get('/profile/:id',verifyToken, getProfileData)
+userRoute.put('/profileupdate/:id',verifyToken, updateUserProfile)
+userRoute.put('/change-password/:id',verifyToken, changePassword)
+userRoute.put('/profileImageupdate/:id', verifyToken, profileImageUpdate)
 
 // address routes
-userRoute.post('/address/:id',addAddress)
-userRoute.get('/address/:id', getAddresses)
-userRoute.put('/address/:id/:addressId', updateAddress)
-userRoute.delete('/address/:id/:addressId', deleteAddress)
+userRoute.post('/address/:id',verifyToken, addAddress)
+userRoute.get('/address/:id',verifyToken, getAddresses)
+userRoute.put('/address/:id/:addressId',verifyToken, updateAddress)
+userRoute.delete('/address/:id/:addressId',verifyToken, deleteAddress)
 
 // Order routes
 userRoute.post('/orders', createOrder); 
-userRoute.get('/orders/detail/:orderId', getOrderById);  // For getting single order
-userRoute.get('/orders/user/:userId', getOrders);        // For getting user's orders
-userRoute.put('/orders/:orderId/cancel', cancelOrder);
-userRoute.get('/orders/:orderId/status', getOrderStatus); // Get current order status
+userRoute.get('/orders/detail/:orderId',verifyToken, getOrderById);  // For getting single order
+userRoute.get('/orders/user/:userId',verifyToken, getOrders);        // For getting user's orders
+userRoute.put('/orders/:orderId/cancel',verifyToken, cancelOrder);
+userRoute.get('/orders/:orderId/status',verifyToken, getOrderStatus); // Get current order status
 
 //cart
-userRoute.post('/cart/add', addToCart);
-userRoute.get('/cart/:userId', getCart);
-userRoute.put('/cart/update', updateCartItem);
-userRoute.delete('/cart/remove/:userId/:productId/:variantId', removeFromCart);
+userRoute.post('/cart/add',verifyToken, addToCart);
+userRoute.get('/cart/:userId',verifyToken, getCart);
+userRoute.put('/cart/update',verifyToken, updateCartItem);
+userRoute.delete('/cart/remove/:userId/:productId/:variantId',verifyToken, removeFromCart);
 
 //razor pay
-userRoute.post('/create-payment', createPaymentOrder);
-userRoute.post('/verify-payment', verifyPayment);
+userRoute.post('/create-payment',verifyToken, createPaymentOrder);
+userRoute.post('/verify-payment',verifyToken, verifyPayment);
 
 // counpon route
-userRoute.post("/validate-coupon",validateCoupon);
-userRoute.post('/apply-coupon', applyCoupon);
-userRoute.get('/valid-coupons', getValidCoupons);
+userRoute.post("/validate-coupon",verifyToken,validateCoupon);
+userRoute.post('/apply-coupon',verifyToken, applyCoupon);
+userRoute.get('/valid-coupons',verifyToken, getValidCoupons);
 
 
 // wallet route
-userRoute.get('/wallet/:userId', getWalletDetails);        // Get wallet details and transactions
-userRoute.post('/wallet/refund', addRefundToWallet);       // Add refund to wallet
+userRoute.get('/wallet/:userId',verifyToken, getWalletDetails);        // Get wallet details and transactions
+userRoute.post('/wallet/refund',verifyToken, addRefundToWallet);       // Add refund to wallet
 
 
 // wishlist
-userRoute.get('/wishlist/:userId',  getWishlist);
-userRoute.post('/wishlist/add',  addToWishlist);
-userRoute.delete('/wishlist/remove/:productId',removeFromWishlist);
+userRoute.get('/wishlist/:userId', verifyToken, getWishlist);
+userRoute.post('/wishlist/add',verifyToken,  addToWishlist);
+userRoute.delete('/wishlist/remove/:productId',verifyToken,removeFromWishlist);
 
 module.exports = userRoute

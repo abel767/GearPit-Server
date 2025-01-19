@@ -1,6 +1,7 @@
 const Category = require('../../../models/Products/categoryModel');
 
 const categoryData = async (req, res) => {
+    // Fetches all categories and sorts them alphabetically by name
     try {
         const data = await Category.find().sort({ categoryName: 1 });
         res.status(200).json(data);
@@ -13,10 +14,13 @@ const categoryData = async (req, res) => {
     }
 };
 
+
 const addCategoryData = async (req, res) => {
+    // Creates a new category with optional description and active status
     try {
         const { categoryName, description = '', isActive = true } = req.body;
 
+        // Check for existing category to prevent duplicates
         const existingCategory = await Category.findOne({
             categoryName: categoryName
         });
@@ -25,6 +29,7 @@ const addCategoryData = async (req, res) => {
             return res.status(400).json({ message: 'Category already exists' });
         }
 
+        // Initialize new category with default offer structure
         const newCategory = new Category({
             categoryName,
             description,
@@ -38,7 +43,6 @@ const addCategoryData = async (req, res) => {
         });
 
         const savedCategory = await newCategory.save();
-
         res.status(201).json({
             message: 'Category created successfully',
             category: savedCategory,
