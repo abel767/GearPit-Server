@@ -27,12 +27,13 @@ const {
 } = require('../../controllers/Cart/cartController');
 
 // razor pay
-const {createPaymentOrder, verifyPayment} = require('../../controllers/razorpay/razorpayController')
+const {createPaymentOrder, verifyPayment, handlePaymentFailure} = require('../../controllers/razorpay/razorpayController')
 
 //wallet
 const { 
     getWalletDetails, 
-    addRefundToWallet 
+    addRefundToWallet ,
+    processWalletPayment
 } = require('../../controllers/wallet/walletController');
 
 // wishlist
@@ -67,10 +68,10 @@ userRoute.delete('/address/:id/:addressId',verifyToken, deleteAddress)
 
 // Order routes
 userRoute.post('/orders', createOrder); 
-userRoute.get('/orders/detail/:orderId',verifyToken, getOrderById);  // For getting single order
-userRoute.get('/orders/user/:userId',verifyToken, getOrders);        // For getting user's orders
+userRoute.get('/orders/detail/:orderId',verifyToken, getOrderById);  
+userRoute.get('/orders/user/:userId',verifyToken, getOrders);        
 userRoute.put('/orders/:orderId/cancel',verifyToken, cancelOrder);
-userRoute.get('/orders/:orderId/status',verifyToken, getOrderStatus); // Get current order status
+userRoute.get('/orders/:orderId/status',verifyToken, getOrderStatus); 
 
 //cart
 userRoute.post('/cart/add',verifyToken, addToCart);
@@ -81,6 +82,7 @@ userRoute.delete('/cart/remove/:userId/:productId/:variantId',verifyToken, remov
 //razor pay
 userRoute.post('/create-payment',verifyToken, createPaymentOrder);
 userRoute.post('/verify-payment',verifyToken, verifyPayment);
+userRoute.post('/payment-failure', verifyToken, handlePaymentFailure);
 
 // counpon route
 userRoute.post("/validate-coupon",verifyToken,validateCoupon);
@@ -89,9 +91,9 @@ userRoute.get('/valid-coupons',verifyToken, getValidCoupons);
 
 
 // wallet route
-userRoute.get('/wallet/:userId',verifyToken, getWalletDetails);        // Get wallet details and transactions
-userRoute.post('/wallet/refund',verifyToken, addRefundToWallet);       // Add refund to wallet
-
+userRoute.get('/wallet/:userId',verifyToken, getWalletDetails);        
+userRoute.post('/wallet/refund',verifyToken, addRefundToWallet);       
+userRoute.post('/wallet/payment', verifyToken, processWalletPayment); 
 
 // wishlist
 userRoute.get('/wishlist/:userId', verifyToken, getWishlist);

@@ -62,6 +62,17 @@ const orderSchema = new mongoose.Schema({
     type: String,
     enum: ['pending', 'paid', 'failed'],
     default: 'pending'
+  },
+  paymentRetryWindow: {
+    type: Date
+  },
+  paymentError: {
+    code: String,
+    description: String,
+    source: String,
+    step: String,
+    reason: String,
+    timestamp: Date
   }
   
 }, {

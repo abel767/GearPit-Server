@@ -8,7 +8,7 @@ const verifySession = (req, res, next) => {
     if (req.isAuthenticated()) {
         return next();
     }
-    res.status(403).json({
+    res.status(401).json({
         error: true,
         message: 'Not authenticated'
     });
@@ -31,28 +31,50 @@ authRoute.get('/google/callback',
                 return res.redirect('http://localhost:5173/user/login');
             }
 
-            // Generate access token
+            // Generate tokens using the same format as your auth middleware
             const accessToken = jwt.sign(
                 { 
                     userId: req.user._id, 
-                    email: req.user.email 
+                    email: req.user.email,
+                    isGoogleUser: true
                 },
                 process.env.ACCESS_TOKEN_SECRET,
                 { expiresIn: '15m' }
             );
 
-            // Set cookies with appropriate options
-            res.cookie('accessToken', accessToken, {
+            const refreshToken = jwt.sign(
+                { 
+                    userId: req.user._id, 
+                    email: req.user.email,
+                    isGoogleUser: true
+                },
+                process.env.REFRESH_TOKEN_SECRET,
+                { expiresIn: '7d' }
+            );
+
+            // Set both tokens as cookies
+            const cookieOptions = {
                 httpOnly: true,
                 secure: process.env.NODE_ENV === 'production',
                 sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+                path: '/'
+            };
+
+            res.cookie('accessToken', accessToken, {
+                ...cookieOptions,
                 maxAge: 15 * 60 * 1000 // 15 minutes
             });
 
-            // Store token in session
+            res.cookie('refreshToken', refreshToken, {
+                ...cookieOptions,
+                maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+            });
+
+            // Store tokens in session
             req.session.accessToken = accessToken;
+            req.session.refreshToken = refreshToken;
             
-            // Save session explicitly
+            // Save session and redirect
             req.session.save((err) => {
                 if (err) {
                     console.error('Session save error:', err);
@@ -67,21 +89,22 @@ authRoute.get('/google/callback',
     }
 );
 
-// Modified login success endpoint
+// Login success endpoint
 authRoute.get('/login/success', verifySession, async (req, res) => {
     try {
         if (!req.user) {
-            return res.status(403).json({
+            return res.status(401).json({
                 error: true,
                 message: 'Not authenticated'
             });
         }
 
-        // Get token from session or generate new one
-        const accessToken = req.session.accessToken || jwt.sign(
+        // Use existing token from cookie or generate new one
+        const accessToken = req.cookies.accessToken || jwt.sign(
             { 
                 userId: req.user._id, 
-                email: req.user.email 
+                email: req.user.email,
+                isGoogleUser: true
             },
             process.env.ACCESS_TOKEN_SECRET,
             { expiresIn: '15m' }

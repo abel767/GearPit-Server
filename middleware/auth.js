@@ -36,55 +36,64 @@ const handleTokenRefresh = async (req, res, next) => {
             });
         }
 
-        const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
-        const user = await User.findById(decoded.userId);
+        try {
+            const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
+            const user = await User.findById(decoded.userId);
 
-        if (!user) {
-            return res.status(401).json({ 
-                message: 'User not found',
-                status: 'USER_NOT_FOUND'
+            if (!user) {
+                return res.status(401).json({ 
+                    message: 'User not found',
+                    status: 'USER_NOT_FOUND'
+                });
+            }
+
+            // Check if refresh token matches stored token
+            const storedToken = decoded.role === 'admin' ? 
+                user.adminRefreshToken : 
+                user.refreshToken;
+
+            if (refreshToken !== storedToken) {
+                return res.status(401).json({ 
+                    message: 'Invalid refresh token',
+                    status: 'INVALID_TOKEN'
+                });
+            }
+
+            const { accessToken, refreshToken: newRefreshToken } = generateTokens(user, decoded.role === 'admin');
+
+            // Update stored refresh token
+            await User.findByIdAndUpdate(user._id, {
+                [decoded.role === 'admin' ? 'adminRefreshToken' : 'refreshToken']: newRefreshToken
             });
-        }
 
-        // Check if refresh token matches stored token
-        const storedToken = decoded.role === 'admin' ? 
-            user.adminRefreshToken : 
-            user.refreshToken;
+            // Set cookies with explicit domain and path
+            const cookieOptions = {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'lax', // Changed from 'strict' to 'lax' for better compatibility
+                path: '/',
+                domain: process.env.NODE_ENV === 'development' ? 'localhost' : process.env.DOMAIN
+            };
 
-        if (refreshToken !== storedToken) {
+            res.cookie(decoded.role === 'admin' ? 'adminAccessToken' : 'accessToken', 
+                accessToken, 
+                { ...cookieOptions, maxAge: 15 * 60 * 1000 }
+            );
+
+            res.cookie(decoded.role === 'admin' ? 'adminRefreshToken' : 'refreshToken',
+                newRefreshToken,
+                { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 }
+            );
+
+            req.user = { ...decoded, newAccessToken: accessToken };
+            return next();
+        } catch (jwtError) {
+            console.error('JWT verification failed:', jwtError);
             return res.status(401).json({ 
                 message: 'Invalid refresh token',
                 status: 'INVALID_TOKEN'
             });
         }
-
-        const { accessToken, refreshToken: newRefreshToken } = generateTokens(user, decoded.role === 'admin');
-
-        // Update stored refresh token
-        await User.findByIdAndUpdate(user._id, {
-            [decoded.role === 'admin' ? 'adminRefreshToken' : 'refreshToken']: newRefreshToken
-        });
-
-        // Set cookies
-        const cookieOptions = {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
-            path: '/'
-        };
-
-        res.cookie(decoded.role === 'admin' ? 'adminAccessToken' : 'accessToken', 
-            accessToken, 
-            { ...cookieOptions, maxAge: 15 * 60 * 1000 }
-        );
-
-        res.cookie(decoded.role === 'admin' ? 'adminRefreshToken' : 'refreshToken',
-            newRefreshToken,
-            { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 }
-        );
-
-        req.user = { ...decoded, newAccessToken: accessToken };
-        next();
     } catch (error) {
         console.error('Token refresh error:', error);
         return res.status(401).json({ 
@@ -104,10 +113,7 @@ const verifyToken = async (req, res, next) => {
         }
 
         if (!token) {
-            return res.status(401).json({ 
-                message: 'Access denied. No token provided.',
-                status: 'TOKEN_MISSING'
-            });
+            return handleTokenRefresh(req, res, next);
         }
 
         try {
@@ -131,6 +137,7 @@ const verifyToken = async (req, res, next) => {
             req.user = decoded;
             next();
         } catch (err) {
+            // If access token is expired or invalid, try to refresh
             return handleTokenRefresh(req, res, next);
         }
     } catch (error) {
@@ -194,5 +201,6 @@ const verifyAdmin = async (req, res, next) => {
 module.exports = { 
     verifyToken, 
     verifyAdmin,
+    handleTokenRefresh,
     generateTokens 
 };

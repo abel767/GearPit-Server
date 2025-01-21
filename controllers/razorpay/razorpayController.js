@@ -70,7 +70,57 @@ const verifyPayment = async(req, res) => {
     }
 };
 
+
+const handlePaymentFailure = async (req, res) => {
+    try {
+        const { error } = req.body;
+        
+        // Get current timestamp for retry window
+        const failureTime = new Date();
+        const retryWindowEnds = new Date(failureTime.getTime() + 11 * 60000); // 11 minutes
+        
+        // Log the payment failure with retry window
+        console.error('Payment failed:', {
+            errorCode: error.code,
+            errorDescription: error.description,
+            errorSource: error.source,
+            errorStep: error.step,
+            errorReason: error.reason,
+            orderId: error.metadata?.order_id,
+            retryWindowEnds: retryWindowEnds
+        });
+
+        if (error.metadata?.order_id) {
+            const order = await Order.findOne({ 'paymentDetails.razorpayOrderId': error.metadata.order_id });
+            if (order) {
+                order.paymentStatus = 'failed';
+                order.status = 'payment_failed';
+                order.paymentRetryWindow = retryWindowEnds;
+                await order.save();
+            }
+        }
+
+        res.status(400).json({
+            success: false,
+            message: 'Payment failed',
+            error: {
+                code: error.code,
+                description: error.description,
+                retryWindowEnds: retryWindowEnds
+            }
+        });
+    } catch (error) {
+        console.error('Error handling payment failure:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error handling payment failure',
+            error: error.message
+        });
+    }
+};
+
 module.exports ={
     createPaymentOrder,
-    verifyPayment
+    verifyPayment,
+    handlePaymentFailure
 }

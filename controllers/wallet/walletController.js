@@ -79,6 +79,81 @@ const getWalletDetails = async (req, res) => {
   }
 };
 
+const processWalletPayment = async(req, res) => {
+  try {
+    const { userId, amount } = req.body;
+
+    // Validate userId
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid user ID format'
+      });
+    }
+
+    // Validate amount
+    if (typeof amount !== 'number' || amount <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid amount'
+      });
+    }
+
+    // Find and update wallet in one atomic operation using findOneAndUpdate
+    const updatedWallet = await Wallet.findOneAndUpdate(
+      { 
+        userId,
+        balance: { $gte: amount } // Check if balance is sufficient
+      },
+      {
+        $inc: { balance: -amount }, // Decrease balance
+        $push: { // Add transaction
+          transactions: {
+            type: 'debit',
+            amount,
+            description: 'Payment for order',
+            status: 'completed',
+            createdAt: new Date()
+          }
+        }
+      },
+      {
+        new: true, // Return updated document
+        runValidators: true
+      }
+    );
+
+    if (!updatedWallet) {
+      return res.status(400).json({
+        success: false,
+        message: 'Insufficient wallet balance or wallet not found'
+      });
+    }
+
+    // Get the new transaction that was just added
+    const newTransaction = updatedWallet.transactions[updatedWallet.transactions.length - 1];
+
+    res.json({
+      success: true,
+      message: 'Payment processed successfully',
+      data: {
+        newBalance: updatedWallet.balance,
+        transaction: newTransaction
+      }
+    });
+
+  } catch (error) {
+    console.error('Wallet payment error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to process payment',
+      error: error.message
+    });
+  }
+};
+
+
+
 const addRefundToWallet = async (req, res) => {
   try {
     const { userId, orderId, amount } = req.body;
@@ -167,5 +242,6 @@ const addRefundToWallet = async (req, res) => {
 
 module.exports = {
   getWalletDetails,
-  addRefundToWallet
+  addRefundToWallet,
+  processWalletPayment
 };

@@ -1,5 +1,6 @@
 const Order = require('../../models/Order/orderModel');
 const Product = require('../../models/Products/productModel');
+const Wallet = require('../../models/wallet/walletModel'); 
 
 
 const createOrder = async (req, res) => {
@@ -261,30 +262,31 @@ const cancelOrder = async (req, res) => {
       }
 
       // Add refund to wallet
-      try {
-        const Wallet = require('../../models/wallet/walletModel'); // Add this at the top of the file
-        let wallet = await Wallet.findOne({ userId: order.userId });
-        
-        if (!wallet) {
-          wallet = new Wallet({ userId: order.userId, balance: 0 });
+      let refundAmount = 0
+      if(order.paymentMethod === 'online'){
+        try {
+          let wallet = await Wallet.findOne({ userId: order.userId });
+          
+          if (!wallet) {
+            wallet = new Wallet({ userId: order.userId, balance: 0 });
+          }
+  
+          // Add refund amount to wallet
+          wallet.balance += order.totalAmount;
+          
+          // Add transaction record
+          wallet.transactions.push({
+            type: 'credit',
+            amount: order.totalAmount,
+            description: `Refund for order #${order.orderNumber}`,
+            orderId: order._id,
+            status: 'completed'
+          });
+  
+          await wallet.save();
+        } catch (walletError) {
+          console.error('Wallet refund error:', walletError);
         }
-
-        // Add refund amount to wallet
-        wallet.balance += order.totalAmount;
-        
-        // Add transaction record
-        wallet.transactions.push({
-          type: 'credit',
-          amount: order.totalAmount,
-          description: `Refund for order #${order.orderNumber}`,
-          orderId: order._id,
-          status: 'completed'
-        });
-
-        await wallet.save();
-      } catch (walletError) {
-        console.error('Wallet refund error:', walletError);
-        // Continue with order cancellation even if wallet update fails
       }
 
       console.log('Order cancelled successfully:', req.params.orderId);
@@ -295,7 +297,7 @@ const cancelOrder = async (req, res) => {
           orderId: order._id,
           status: order.status,
           orderNumber: order.orderNumber,
-          refundAmount: order.totalAmount
+          refundAmount: refundAmount
         }
       });
 
@@ -318,6 +320,7 @@ const cancelOrder = async (req, res) => {
     });
   }
 };
+
 
 module.exports = {
   createOrder,
