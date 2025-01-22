@@ -27,7 +27,7 @@ const {
 } = require('../../controllers/Cart/cartController');
 
 // razor pay
-const {createPaymentOrder, verifyPayment, handlePaymentFailure} = require('../../controllers/razorpay/razorpayController')
+const {createPaymentOrder, verifyPayment, handlePaymentFailure, retryPayment} = require('../../controllers/razorpay/razorpayController')
 
 //wallet
 const { 
@@ -42,6 +42,10 @@ const {
     addToWishlist, 
     removeFromWishlist 
   } = require('../../controllers/wishlist/wishlistController');
+
+
+// invoice controller
+const {generateInvoice } =require('../../controllers/invoice pdf/invoicePDF')
 
 // post methods
 userRoute.post('/signup', signUp)
@@ -72,7 +76,7 @@ userRoute.get('/orders/detail/:orderId',verifyToken, getOrderById);
 userRoute.get('/orders/user/:userId',verifyToken, getOrders);        
 userRoute.put('/orders/:orderId/cancel',verifyToken, cancelOrder);
 userRoute.get('/orders/:orderId/status',verifyToken, getOrderStatus); 
-
+userRoute.post('/orders/:orderId/retry-payment', verifyToken, retryPayment);
 //cart
 userRoute.post('/cart/add',verifyToken, addToCart);
 userRoute.get('/cart/:userId',verifyToken, getCart);
@@ -99,5 +103,8 @@ userRoute.post('/wallet/payment', verifyToken, processWalletPayment);
 userRoute.get('/wishlist/:userId', verifyToken, getWishlist);
 userRoute.post('/wishlist/add',verifyToken,  addToWishlist);
 userRoute.delete('/wishlist/remove/:productId',verifyToken,removeFromWishlist);
+
+//invoice pdf router
+userRoute.get('/orders/invoice/:orderId',verifyToken, generateInvoice)
 
 module.exports = userRoute

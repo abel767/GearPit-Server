@@ -1,6 +1,6 @@
 const Razorpay = require('razorpay')
 const crypto = require('crypto')
-
+const Order = require('../../models/Order/orderModel')
 const razorpay = new Razorpay({
     key_id: process.env.RAZORPAY_KEY_ID,
     key_secret: process.env.RAZORPAY_KEY_SECRET
@@ -73,40 +73,31 @@ const verifyPayment = async(req, res) => {
 
 const handlePaymentFailure = async (req, res) => {
     try {
-        const { error } = req.body;
+        const { error, orderId } = req.body;
         
-        // Get current timestamp for retry window
-        const failureTime = new Date();
-        const retryWindowEnds = new Date(failureTime.getTime() + 11 * 60000); // 11 minutes
-        
-        // Log the payment failure with retry window
-        console.error('Payment failed:', {
-            errorCode: error.code,
-            errorDescription: error.description,
-            errorSource: error.source,
-            errorStep: error.step,
-            errorReason: error.reason,
-            orderId: error.metadata?.order_id,
-            retryWindowEnds: retryWindowEnds
-        });
-
-        if (error.metadata?.order_id) {
-            const order = await Order.findOne({ 'paymentDetails.razorpayOrderId': error.metadata.order_id });
-            if (order) {
-                order.paymentStatus = 'failed';
-                order.status = 'payment_failed';
-                order.paymentRetryWindow = retryWindowEnds;
-                await order.save();
-            }
+        const order = await Order.findById(orderId);
+        if (!order) {
+            return res.status(404).json({
+                success: false,
+                message: 'Order not found'
+            });
         }
+
+        // Update order status
+        order.paymentStatus = 'failed';
+        order.status = 'pending';
+        order.paymentRetryCount += 1;
+        // Set retry window to 11 minutes from now
+        order.paymentRetryWindow = new Date(Date.now() + 11 * 60000);
+        
+        await order.save();
 
         res.status(400).json({
             success: false,
             message: 'Payment failed',
-            error: {
-                code: error.code,
-                description: error.description,
-                retryWindowEnds: retryWindowEnds
+            data: {
+                orderId: order._id,
+                retryWindowEnds: order.paymentRetryWindow
             }
         });
     } catch (error) {
@@ -119,8 +110,60 @@ const handlePaymentFailure = async (req, res) => {
     }
 };
 
+const retryPayment = async (req, res) => {
+    try {
+        const { orderId } = req.params;
+        
+        const order = await Order.findById(orderId);
+        if (!order) {
+            return res.status(404).json({
+                success: false,
+                message: 'Order not found'
+            });
+        }
+
+        // Check if retry is still allowed
+        if (Date.now() > order.paymentRetryWindow) {
+            return res.status(400).json({
+                success: false,
+                message: 'Payment retry window has expired'
+            });
+        }
+
+        // Create new Razorpay order
+        const options = {
+            amount: order.totalAmount * 100,
+            currency: "INR",
+            receipt: `retry_${order._id}`
+        };
+
+        const razorpayOrder = await razorpay.orders.create(options);
+        
+        // Update order with new Razorpay order ID
+        order.razorpayOrderId = razorpayOrder.id;
+        await order.save();
+
+        res.json({
+            success: true,
+            data: {
+                orderId: razorpayOrder.id,
+                amount: razorpayOrder.amount,
+                currency: razorpayOrder.currency
+            }
+        });
+    } catch (error) {
+        console.error('Error creating retry payment:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to create retry payment',
+            error: error.message
+        });
+    }
+};
+
 module.exports ={
     createPaymentOrder,
     verifyPayment,
-    handlePaymentFailure
+    handlePaymentFailure,
+    retryPayment
 }

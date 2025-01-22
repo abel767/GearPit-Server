@@ -63,18 +63,16 @@ const orderSchema = new mongoose.Schema({
     enum: ['pending', 'paid', 'failed'],
     default: 'pending'
   },
+  paymentRetryCount: {
+    type: Number,
+    default: 0
+  },
   paymentRetryWindow: {
     type: Date
   },
-  paymentError: {
-    code: String,
-    description: String,
-    source: String,
-    step: String,
-    reason: String,
-    timestamp: Date
+  razorpayOrderId: {
+    type: String
   }
-  
 }, {
   timestamps: true
 });
