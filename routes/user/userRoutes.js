@@ -53,7 +53,8 @@ userRoute.post('/verifyOTP', verifyOTP)
 userRoute.post('/resendOTP', resendOTP)
 userRoute.post('/refresh-token', refreshTokenController)
 userRoute.post('/login',login)
-userRoute.post('/logout', logout)
+
+userRoute.post('/logout',verifyToken, logout)
 
 // user data route
 userRoute.get('/getuserdata/:id',getUserData)

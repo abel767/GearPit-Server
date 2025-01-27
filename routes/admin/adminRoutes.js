@@ -71,7 +71,7 @@ const{
 
 // Admin authentication
 adminRoute.post("/login", adminLogin);
-adminRoute.post("/logout", adminLogout);
+adminRoute.post("/logout",verifyAdmin, adminLogout);
 
 // User management
 adminRoute.get("/data", getUserData);

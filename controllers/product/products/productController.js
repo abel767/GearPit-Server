@@ -1,5 +1,5 @@
 const Product = require('../../../models/Products/productModel');
-
+const Category = require('../../../models/Products/categoryModel')
 const handleControllerError = (res, error, customMessage) => {
     console.error(`${customMessage} Error:`, error);
     res.status(500).json({
@@ -8,21 +8,32 @@ const handleControllerError = (res, error, customMessage) => {
     });
 };
 
-const calculateFinalPrice = (basePrice, variantDiscount = 0, productOffer = null) => {
+const calculateFinalPrice = (basePrice, variantDiscount = 0, productOffer = null, categoryOffer = null) => {
     let finalPrice = basePrice;
-    
-    // Apply variant discount first
+    let highestDiscountPercentage = 0;
+
+    // Check variant discount
     if (variantDiscount > 0) {
-        finalPrice *= (1 - variantDiscount / 100);
+        highestDiscountPercentage = Math.max(highestDiscountPercentage, variantDiscount);
     }
-    
-    // Then apply product offer if exists and is active
+
+    // Check product offer
     if (productOffer && productOffer.isActive && productOffer.percentage > 0) {
-        finalPrice *= (1 - productOffer.percentage / 100);
+        highestDiscountPercentage = Math.max(highestDiscountPercentage, productOffer.percentage);
     }
+
+    // Check category offer
+    if (categoryOffer && categoryOffer.isActive && categoryOffer.percentage > 0) {
+        highestDiscountPercentage = Math.max(highestDiscountPercentage, categoryOffer.percentage);
+    }
+
+    // Apply the highest discount
+    finalPrice *= (1 - highestDiscountPercentage / 100);
     
     return Math.round(finalPrice * 100) / 100; // Round to 2 decimal places
 };
+
+
 
 const getProductData = async(req, res) => {
     try {
@@ -42,19 +53,24 @@ const getProductData = async(req, res) => {
             const variants = product.variants.map(variant => {
                 const basePrice = variant.price;
                 let finalPrice = basePrice;
+                let highestDiscountPercentage = 0;
 
-                // Apply discounts in order: variant -> product -> category
                 if (variant.discount > 0) {
-                    finalPrice *= (1 - variant.discount / 100);
+                    highestDiscountPercentage = Math.max(highestDiscountPercentage, variant.discount);
                 }
-
+            
+                // Check product offer
                 if (product.offer && product.offer.isActive) {
-                    finalPrice *= (1 - product.offer.percentage / 100);
+                    highestDiscountPercentage = Math.max(highestDiscountPercentage, product.offer.percentage);
                 }
-
+            
+                // Check category offer
                 if (product.category.offer && product.category.offer.isActive) {
-                    finalPrice *= (1 - product.category.offer.percentage / 100);
+                    highestDiscountPercentage = Math.max(highestDiscountPercentage, product.category.offer.percentage);
                 }
+            
+                // Apply the highest discount
+                finalPrice *= (1 - highestDiscountPercentage / 100);
 
                 return {
                     ...variant,
@@ -107,18 +123,18 @@ const addProduct = async(req, res) => {
         // CRITICAL ERROR: Using Product model instead of Category model
         // Should be:
         // const categoryData = await Category.findById(category).select('offer');
-        const categoryData = await Product.findById(category).select('offer');
+        const categoryData = await Category.findById(category).select('offer');
 
         const processedVariants = variants.map(variant => {
             const basePrice = parseFloat(variant.price);
             const variantDiscount = parseFloat(variant.discount || 0);
-            let finalPrice = calculateFinalPrice(basePrice, variantDiscount, offer);
-
-            // Apply category offer if exists
-            if (categoryData && categoryData.offer && categoryData.offer.isActive) {
-                finalPrice *= (1 - categoryData.offer.percentage / 100);
-                finalPrice = Math.round(finalPrice * 100) / 100;
-            }
+            
+            const finalPrice = calculateFinalPrice(
+                basePrice, 
+                variantDiscount, 
+                offer, 
+                categoryData?.offer
+            );
 
             return {
                 size: variant.size,
@@ -182,23 +198,19 @@ const editProduct = async(req, res) => {
         }
 
         // Fetch category to check for category offer
-        const categoryData = await Product.findById(updateData.category || existingProduct.category)
+        const categoryData = await Category.findById(updateData.category || existingProduct.category)
             .select('offer');
 
         const processedVariants = updateData.variants.map(variant => {
             const basePrice = parseFloat(variant.price);
             const variantDiscount = parseFloat(variant.discount || 0);
-            let finalPrice = calculateFinalPrice(
+            
+            const finalPrice = calculateFinalPrice(
                 basePrice, 
                 variantDiscount, 
-                updateData.offer || existingProduct.offer
+                updateData.offer || existingProduct.offer, 
+                categoryData?.offer
             );
-
-            // Apply category offer if exists and is active
-            if (categoryData && categoryData.offer && categoryData.offer.isActive) {
-                finalPrice *= (1 - categoryData.offer.percentage / 100);
-                finalPrice = Math.round(finalPrice * 100) / 100;
-            }
 
             return {
                 size: variant.size,

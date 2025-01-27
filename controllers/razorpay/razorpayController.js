@@ -70,100 +70,147 @@ const verifyPayment = async(req, res) => {
     }
 };
 
+const isRetryWindowActive = (retryWindow) => {
+    return retryWindow && new Date() < new Date(retryWindow);
+};
 
 const handlePaymentFailure = async (req, res) => {
     try {
-        const { error, orderId } = req.body;
-        
-        const order = await Order.findById(orderId);
-        if (!order) {
-            return res.status(404).json({
-                success: false,
-                message: 'Order not found'
-            });
+      const { error } = req.body;
+      let orderId = error.metadata?.order_id;
+      
+      const order = await Order.findById(orderId);
+      if (!order) {
+        return res.status(404).json({
+          success: false,
+          message: 'Order not found'
+        });
+      }
+  
+      order.paymentStatus = 'failed';
+      order.status = 'pending';
+      order.paymentRetryCount = (order.paymentRetryCount || 0) + 1;
+      order.paymentRetryWindow = new Date(Date.now() + 11 * 60000);
+      
+      await order.save();
+  
+      res.json({
+        success: true,
+        data: {
+          orderId: order._id,
+          retryWindowEnds: order.paymentRetryWindow
         }
-
-        // Update order status
-        order.paymentStatus = 'failed';
-        order.status = 'pending';
-        order.paymentRetryCount += 1;
-        // Set retry window to 11 minutes from now
-        order.paymentRetryWindow = new Date(Date.now() + 11 * 60000);
-        
-        await order.save();
-
-        res.status(400).json({
-            success: false,
-            message: 'Payment failed',
-            data: {
-                orderId: order._id,
-                retryWindowEnds: order.paymentRetryWindow
-            }
-        });
+      });
     } catch (error) {
-        console.error('Error handling payment failure:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error handling payment failure',
-            error: error.message
-        });
+      console.error('Error handling payment failure:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error handling payment failure',
+        error: error.message
+      });
     }
-};
-
+  };
 const retryPayment = async (req, res) => {
     try {
-        const { orderId } = req.params;
-        
-        const order = await Order.findById(orderId);
-        if (!order) {
-            return res.status(404).json({
-                success: false,
-                message: 'Order not found'
-            });
-        }
-
-        // Check if retry is still allowed
-        if (Date.now() > order.paymentRetryWindow) {
-            return res.status(400).json({
-                success: false,
-                message: 'Payment retry window has expired'
-            });
-        }
-
-        // Create new Razorpay order
-        const options = {
-            amount: order.totalAmount * 100,
-            currency: "INR",
-            receipt: `retry_${order._id}`
-        };
-
-        const razorpayOrder = await razorpay.orders.create(options);
-        
-        // Update order with new Razorpay order ID
-        order.razorpayOrderId = razorpayOrder.id;
-        await order.save();
-
-        res.json({
-            success: true,
-            data: {
-                orderId: razorpayOrder.id,
-                amount: razorpayOrder.amount,
-                currency: razorpayOrder.currency
-            }
+      const { orderId } = req.params;
+      const order = await Order.findById(orderId);
+      
+      if (!order) {
+        return res.status(404).json({
+          success: false,
+          message: 'Order not found'
         });
+      }
+  
+      if (!isRetryWindowActive(order.paymentRetryWindow)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Payment retry window has expired'
+        });
+      }
+  
+      const options = {
+        amount: order.totalAmount * 100,
+        currency: "INR",
+        receipt: `retry_${order._id}`
+      };
+  
+      const razorpayOrder = await razorpay.orders.create(options);
+      
+      order.razorpayOrderId = razorpayOrder.id;
+      await order.save();
+  
+      res.json({
+        success: true,
+        data: {
+          orderId: razorpayOrder.id,
+          amount: razorpayOrder.amount,
+          currency: razorpayOrder.currency,
+          orderNumber: order.orderNumber,
+          key: process.env.RAZORPAY_KEY_ID
+        }
+      });
     } catch (error) {
-        console.error('Error creating retry payment:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to create retry payment',
-            error: error.message
-        });
+      console.error('Retry payment error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to create retry payment',
+        error: error.message
+      });
     }
-};
+  };
+  
+  const verifyRetryPayment = async (req, res) => {
+    try {
+      const { razorpay_payment_id, razorpay_order_id, razorpay_signature, orderId } = req.body;
+  
+      const shasum = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET);
+      shasum.update(`${razorpay_order_id}|${razorpay_payment_id}`);
+      const digest = shasum.digest('hex');
+  
+      if (digest !== razorpay_signature) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid payment signature'
+        });
+      }
+  
+      const order = await Order.findById(orderId);
+      if (!order) {
+        return res.status(404).json({
+          success: false,
+          message: 'Order not found'
+        });
+      }
+  
+      order.paymentStatus = 'paid';
+      order.status = 'processing';
+      order.paymentId = razorpay_payment_id;
+      await order.save();
+  
+      res.json({
+        success: true,
+        message: 'Payment verified successfully',
+        data: {
+          orderId: order._id,
+          orderNumber: order.orderNumber,
+          status: order.status
+        }
+      });
+    } catch (error) {
+      console.error('Payment verification error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Payment verification failed',
+        error: error.message
+      });
+    }
+  };
 
 module.exports ={
     createPaymentOrder,
     verifyPayment,
     handlePaymentFailure,
-    retryPayment
+    retryPayment,
+    verifyRetryPayment
 }
