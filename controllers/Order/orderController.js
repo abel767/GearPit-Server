@@ -160,6 +160,31 @@ const getOrderById = async (req, res) => {
   }
 };
 
+const getOrderByRazorpayId = async (req, res) => {
+  try {
+    const { razorpayOrderId } = req.params;
+    
+    const order = await Order.findOne({ razorpayOrderId });
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      order
+    });
+  } catch (error) {
+    console.error('Get order error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch order details'
+    });
+  }
+};
+
 
 const getOrders = async (req, res) => {
   try {
@@ -327,5 +352,6 @@ module.exports = {
   getOrderById,
   getOrders,
   cancelOrder,
-  getOrderStatus
+  getOrderStatus,
+  getOrderByRazorpayId
 };

@@ -70,100 +70,132 @@ const verifyPayment = async(req, res) => {
     }
 };
 
-const isRetryWindowActive = (retryWindow) => {
-    return retryWindow && new Date() < new Date(retryWindow);
-};
+
 
 const handlePaymentFailure = async (req, res) => {
-    try {
-      const { error } = req.body;
-      let orderId = error.metadata?.order_id;
-      
-      const order = await Order.findById(orderId);
-      if (!order) {
-        return res.status(404).json({
-          success: false,
-          message: 'Order not found'
-        });
+  try {
+    const { error } = req.body;
+    let orderId = error.metadata?.order_id;
+    
+    // First try to find order by razorpayOrderId
+    let order = await Order.findOne({ razorpayOrderId: orderId });
+    
+    if (!order) {
+      // If not found and if it's a valid ObjectId, try finding by _id
+      if (/^[0-9a-fA-F]{24}$/.test(orderId)) {
+        order = await Order.findById(orderId);
       }
-  
-      order.paymentStatus = 'failed';
-      order.status = 'pending';
-      order.paymentRetryCount = (order.paymentRetryCount || 0) + 1;
-      order.paymentRetryWindow = new Date(Date.now() + 11 * 60000);
-      
-      await order.save();
-  
-      res.json({
-        success: true,
-        data: {
-          orderId: order._id,
-          retryWindowEnds: order.paymentRetryWindow
-        }
-      });
-    } catch (error) {
-      console.error('Error handling payment failure:', error);
-      res.status(500).json({
+    }
+
+    if (!order) {
+      return res.status(404).json({
         success: false,
-        message: 'Error handling payment failure',
-        error: error.message
+        message: 'Order not found'
       });
     }
-  };
+
+    order.paymentStatus = 'failed';
+    order.status = 'pending';
+    order.paymentRetryCount = (order.paymentRetryCount || 0) + 1;
+    order.paymentRetryWindow = new Date(Date.now() + 11 * 60000); // 11 minutes
+    
+    await order.save();
+
+    res.json({
+      success: true,
+      data: {
+        orderId: order._id,
+        retryWindowEnds: order.paymentRetryWindow
+      }
+    });
+  } catch (error) {
+    console.error('Error handling payment failure:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error handling payment failure',
+      error: error.message
+    });
+  }
+};
+
 const retryPayment = async (req, res) => {
-    try {
-      const { orderId } = req.params;
-      const order = await Order.findById(orderId);
-      
-      if (!order) {
-        return res.status(404).json({
-          success: false,
-          message: 'Order not found'
-        });
-      }
-  
-      if (!isRetryWindowActive(order.paymentRetryWindow)) {
-        return res.status(400).json({
-          success: false,
-          message: 'Payment retry window has expired'
-        });
-      }
-  
-      const options = {
-        amount: order.totalAmount * 100,
-        currency: "INR",
-        receipt: `retry_${order._id}`
-      };
-  
-      const razorpayOrder = await razorpay.orders.create(options);
-      
-      order.razorpayOrderId = razorpayOrder.id;
-      await order.save();
-  
-      res.json({
-        success: true,
-        data: {
-          orderId: razorpayOrder.id,
-          amount: razorpayOrder.amount,
-          currency: razorpayOrder.currency,
-          orderNumber: order.orderNumber,
-          key: process.env.RAZORPAY_KEY_ID
-        }
-      });
-    } catch (error) {
-      console.error('Retry payment error:', error);
-      res.status(500).json({
+  try {
+    const { orderId } = req.params;
+    
+    // First try to find order by razorpayOrderId
+    let order = await Order.findOne({ razorpayOrderId: orderId });
+    
+    // If not found and if it's a valid ObjectId, try finding by _id
+    if (!order && /^[0-9a-fA-F]{24}$/.test(orderId)) {
+      order = await Order.findById(orderId);
+    }
+
+    if (!order) {
+      return res.status(404).json({
         success: false,
-        message: 'Failed to create retry payment',
-        error: error.message
+        message: 'Order not found'
       });
     }
-  };
+
+    // Check if order is in a valid state for retry
+    if (order.paymentStatus !== 'failed' && order.status !== 'pending') {
+      return res.status(400).json({
+        success: false,
+        message: 'Order is not eligible for payment retry'
+      });
+    }
+
+    // Check if retry window is still active
+    if (!order.paymentRetryWindow || new Date() > new Date(order.paymentRetryWindow)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Payment retry window has expired'
+      });
+    }
+
+    // Create new Razorpay order
+    const razorpayOrder = await razorpay.orders.create({
+      amount: Math.round(order.totalAmount * 100),
+      currency: "INR",
+      receipt: `retry_${order._id}`,
+      notes: {
+        originalOrderId: order._id.toString(),
+        retryAttempt: (order.paymentRetryCount || 0) + 1
+      }
+    });
+
+    // Update order with new Razorpay order ID
+    order.razorpayOrderId = razorpayOrder.id;
+    await order.save();
+
+    res.json({
+      success: true,
+      data: {
+        orderId: razorpayOrder.id,
+        amount: razorpayOrder.amount,
+        currency: razorpayOrder.currency,
+        orderNumber: order.orderNumber,
+        key: process.env.RAZORPAY_KEY_ID
+      }
+    });
+
+  } catch (error) {
+    console.error('Retry payment error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create retry payment',
+      error: error.message
+    });
+  }
+};
+
+
   
   const verifyRetryPayment = async (req, res) => {
     try {
       const { razorpay_payment_id, razorpay_order_id, razorpay_signature, orderId } = req.body;
   
+      // Verify signature
       const shasum = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET);
       shasum.update(`${razorpay_order_id}|${razorpay_payment_id}`);
       const digest = shasum.digest('hex');
@@ -175,6 +207,7 @@ const retryPayment = async (req, res) => {
         });
       }
   
+      // Update order status
       const order = await Order.findById(orderId);
       if (!order) {
         return res.status(404).json({

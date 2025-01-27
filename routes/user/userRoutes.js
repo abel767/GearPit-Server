@@ -10,7 +10,7 @@ const {getProfileData, updateUserProfile, changePassword, profileImageUpdate} = 
 // user addresses controller
 const {addAddress, getAddresses, updateAddress, deleteAddress} = require('../../controllers/User/userAddressController')
 // order controllers
-const { createOrder, getOrderById, getOrders, getOrderStatus , cancelOrder } = require('../../controllers/Order/orderController');
+const { createOrder, getOrderById, getOrders, getOrderStatus , cancelOrder,getOrderByRazorpayId } = require('../../controllers/Order/orderController');
 
 // coupon controller
 const {validateCoupon,applyCoupon,getValidCoupons } = require('../../controllers/User/userCouponController')
@@ -27,7 +27,13 @@ const {
 } = require('../../controllers/Cart/cartController');
 
 // razor pay
-const {createPaymentOrder, verifyPayment, handlePaymentFailure, retryPayment} = require('../../controllers/razorpay/razorpayController')
+const { 
+    retryPayment, 
+    verifyRetryPayment,
+    createPaymentOrder, 
+    verifyPayment, 
+    handlePaymentFailure 
+} = require('../../controllers/razorpay/razorpayController');
 
 //wallet
 const { 
@@ -78,6 +84,9 @@ userRoute.get('/orders/user/:userId',verifyToken, getOrders);
 userRoute.put('/orders/:orderId/cancel',verifyToken, cancelOrder);
 userRoute.get('/orders/:orderId/status',verifyToken, getOrderStatus); 
 userRoute.post('/orders/:orderId/retry-payment', verifyToken, retryPayment);
+userRoute.get('/orders/razorpay/:razorpayOrderId', verifyToken, getOrderByRazorpayId);
+userRoute.post('/razorpay/verify-retry-payment', verifyToken, verifyRetryPayment);
+
 //cart
 userRoute.post('/cart/add',verifyToken, addToCart);
 userRoute.get('/cart/:userId',verifyToken, getCart);
@@ -87,7 +96,7 @@ userRoute.delete('/cart/remove/:userId/:productId/:variantId',verifyToken, remov
 //razor pay
 userRoute.post('/create-payment',verifyToken, createPaymentOrder);
 userRoute.post('/verify-payment',verifyToken, verifyPayment);
-userRoute.post('/payment-failure', verifyToken, handlePaymentFailure);
+userRoute.post('/razorpay/payment-failure', verifyToken, handlePaymentFailure);
 
 // counpon route
 userRoute.post("/validate-coupon",verifyToken,validateCoupon);
