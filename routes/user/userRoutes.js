@@ -53,6 +53,9 @@ const {
 // invoice controller
 const {generateInvoice } =require('../../controllers/invoice pdf/invoicePDF')
 
+//search engine
+const {searchProducts} = require('../../controllers/product/products/productController')
+
 // post methods
 userRoute.post('/signup', signUp)
 userRoute.post('/verifyOTP', verifyOTP)
@@ -116,5 +119,8 @@ userRoute.delete('/wishlist/remove/:productId',verifyToken,removeFromWishlist);
 
 //invoice pdf router
 userRoute.get('/orders/invoice/:orderId',verifyToken, generateInvoice)
+
+// search 
+userRoute.get('/search', searchProducts);
 
 module.exports = userRoute

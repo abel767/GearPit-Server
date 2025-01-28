@@ -4,6 +4,7 @@ const productSchema = new mongoose.Schema({
     productName: {
         type: String,
         required: true,
+        index: true
     },
     category: {
         type: mongoose.Schema.Types.ObjectId,
@@ -12,6 +13,7 @@ const productSchema = new mongoose.Schema({
     },
     brand: {
         type: String,
+        index: true
     },
     images: {
         type: [String],
@@ -23,6 +25,7 @@ const productSchema = new mongoose.Schema({
     },
     description: {
         type: String,
+        index: true
     },
     offer: {
         percentage: {
@@ -52,6 +55,12 @@ const productSchema = new mongoose.Schema({
 }, {
     timestamps: true
 });
+
+productSchema.index({
+    productName: 'text',
+    description: 'text',
+    brand: 'text'
+})
 
 module.exports = mongoose.models.Product || mongoose.model('Product', productSchema);
 

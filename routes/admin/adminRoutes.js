@@ -69,6 +69,13 @@ const{
 } = require('../../controllers/Admin/salesReportController')
 
 
+// top 
+const{
+  getTopProducts,
+  getTopCategories,
+  getTopBrands
+} = require('../../controllers/Admin/Top/topController')
+
 // Admin authentication
 adminRoute.post("/login", adminLogin);
 adminRoute.post("/logout",verifyAdmin, adminLogout);
@@ -123,5 +130,8 @@ adminRoute.post("/category-offer", addCategoryOffer);
 adminRoute.delete("/category-offer/:categoryId", removeCategoryOffer);
 adminRoute.get("/offers", getAllOffers);
 
+// top
+adminRoute.get('/sales/top-products', getTopProducts);
+adminRoute.get('/sales/top-categories', getTopCategories);
 
 module.exports = adminRoute;

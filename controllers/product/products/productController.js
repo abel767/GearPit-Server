@@ -286,9 +286,94 @@ const toggleProductStatus = async (req, res) => {
     }
 };
 
+
+const searchProducts = async (req, res) => {
+    try {
+        const { query } = req.query;
+        
+        if (!query) {
+            return res.status(400).json({ 
+                message: 'Search query is required'
+            });
+        }
+
+        // Create search pipeline with category population
+        const searchPipeline = [
+            {
+                $match: {
+                    $and: [
+                        { isBlocked: false },
+                        {
+                            $or: [
+                                { productName: { $regex: query, $options: 'i' } },
+                                { description: { $regex: query, $options: 'i' } },
+                                { brand: { $regex: query, $options: 'i' } }
+                            ]
+                        }
+                    ]
+                }
+            },
+            // Populate category data
+            {
+                $lookup: {
+                    from: 'categories',
+                    localField: 'category',
+                    foreignField: '_id',
+                    as: 'category'
+                }
+            },
+            {
+                $unwind: {
+                    path: '$category',
+                    preserveNullAndEmptyArrays: true
+                }
+            }
+        ];
+
+        const products = await Product.aggregate(searchPipeline);
+
+        // Process products to include final prices (using your existing calculateFinalPrice function)
+        const processedProducts = products.map(product => {
+            const variants = product.variants.map(variant => {
+                const basePrice = variant.price;
+                const finalPrice = calculateFinalPrice(
+                    basePrice,
+                    variant.discount,
+                    product.offer,
+                    product.category?.offer
+                );
+
+                return {
+                    ...variant,
+                    finalPrice
+                };
+            });
+
+            return {
+                ...product,
+                variants
+            };
+        });
+
+        return res.status(200).json({
+            success: true,
+            products: processedProducts,
+            count: processedProducts.length
+        });
+
+    } catch (error) {
+        console.error('Search error:', error);
+        return res.status(500).json({
+            message: 'Failed to search products',
+            error: error.message
+        });
+    }
+};
+
 module.exports = {
     getProductData,
     addProduct,
     toggleProductStatus,
-    editProduct
+    editProduct,
+    searchProducts
 };
