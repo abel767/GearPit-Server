@@ -106,14 +106,20 @@ const handleTokenRefresh = async (req, res, next) => {
 // Base authentication middleware
 const verifyToken = async (req, res, next) => {
     try {
+        // Check for access token in cookies and Authorization header
         let token = req.cookies.accessToken;
-
         if (!token && req.headers.authorization) {
-            token = req.headers.authorization.split(' ')[1];
+            const authHeader = req.headers.authorization;
+            if (authHeader.startsWith('Bearer ')) {
+                token = authHeader.substring(7);
+            }
         }
 
         if (!token) {
-            return handleTokenRefresh(req, res, next);
+            return res.status(401).json({
+                message: 'Access token missing',
+                status: 'TOKEN_MISSING'
+            });
         }
 
         try {
@@ -121,14 +127,14 @@ const verifyToken = async (req, res, next) => {
             const user = await User.findById(decoded.userId);
             
             if (!user) {
-                return res.status(401).json({ 
+                return res.status(401).json({
                     message: 'User not found',
                     status: 'USER_NOT_FOUND'
                 });
             }
 
             if (user.isBlocked) {
-                return res.status(403).json({ 
+                return res.status(403).json({
                     message: 'Account is blocked',
                     status: 'ACCOUNT_BLOCKED'
                 });
@@ -137,12 +143,19 @@ const verifyToken = async (req, res, next) => {
             req.user = decoded;
             next();
         } catch (err) {
-            // If access token is expired or invalid, try to refresh
-            return handleTokenRefresh(req, res, next);
+            // Only try to refresh if it's a token expiration error
+            if (err.name === 'TokenExpiredError') {
+                return handleTokenRefresh(req, res, next);
+            }
+            
+            return res.status(401).json({
+                message: 'Invalid access token',
+                status: 'INVALID_TOKEN'
+            });
         }
     } catch (error) {
         console.error('Auth middleware error:', error);
-        return res.status(401).json({ 
+        return res.status(500).json({
             message: 'Authentication failed',
             status: 'AUTH_FAILED'
         });

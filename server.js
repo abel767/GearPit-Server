@@ -21,15 +21,17 @@ const app = express();
 // CORS Options
 const corsOptions = {
   origin: process.env.CORS || 'http://localhost:5173',
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   credentials: true,
   allowedHeaders: ['Content-Type', 'Authorization']
 };
+
 // Middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 app.use(cors(corsOptions));
 app.use(cookieParser());
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Session Setup
 app.use(session({
@@ -49,58 +51,44 @@ app.use(passport.session());
 
 // Google OAuth Strategy
 passport.use(
-  new GoogleStrategy({
-      clientID: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: "/auth/google/callback",
-      passReqToCallback: true,
-      scope: ["profile", "email"]
-  },
-  async (request, accessToken, refreshToken, profile, done) => {
-      try {
+    new GoogleStrategy(
+      {
+        clientID: process.env.GOOGLE_CLIENT_ID,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+        callbackURL: 'http://localhost:3000/auth/google/callback', // Use absolute URL
+        passReqToCallback: true
+      },
+      async (request, accessToken, refreshToken, profile, done) => {
+        try {
+          console.log('Google profile:', profile.emails[0].value); // Add logging
           let user = await User.findOne({ googleId: profile.id });
           
           const profileImage = profile.photos?.[0]?.value.replace('=s96-c', '=s400-c') || null;
-
+  
           if (!user) {
-              user = new User({
-                  firstName: profile.name.givenName,
-                  lastName: profile.name.familyName,
-                  userName: profile.displayName,
-                  email: profile.emails[0].value,
-                  googleId: profile.id,
-                  isGoogleUser: true,
-                  verified: true,
-                  profileImage: profileImage,
-              });
-              
-              await user.save();
-          } else if (profileImage && user.profileImage !== profileImage) {
-              user.profileImage = profileImage;
-              await user.save();
+            user = new User({
+              firstName: profile.name.givenName,
+              lastName: profile.name.familyName,
+              userName: profile.displayName,
+              email: profile.emails[0].value,
+              googleId: profile.id,
+              isGoogleUser: true,
+              verified: true,
+              profileImage: profileImage,
+            });
+            
+            await user.save();
+            console.log('New user created:', user._id); // Add logging
           }
-
-          // Generate JWT token
-          const jwtAccessToken = jwt.sign(
-              { 
-                  userId: user._id, 
-                  email: user.email,
-                  isGoogleUser: true
-              },
-              process.env.ACCESS_TOKEN_SECRET,
-              { expiresIn: '15m' }
-          );
-
-          // Attach token to user object
-          user.accessToken = jwtAccessToken;
-          
+  
           return done(null, user);
-      } catch (error) {
+        } catch (error) {
           console.error('Google Strategy Error:', error);
           return done(error, null);
+        }
       }
-  })
-);
+    )
+  );
 
 
 

@@ -37,7 +37,7 @@ const calculateFinalPrice = (basePrice, variantDiscount = 0, productOffer = null
 
 const getProductData = async(req, res) => {
     try {
-        // Fetch products with category information
+        // Fetch products with category information and ensure variants are included
         const products = await Product.find()
             .populate('category', 'categoryName offer')
             .lean();
@@ -48,9 +48,10 @@ const getProductData = async(req, res) => {
             });
         }
 
-        // Process each product to include final prices with all applicable discounts
+        // Process each product and ensure all variants are included
         const processedProducts = products.map(product => {
-            const variants = product.variants.map(variant => {
+            // Ensure variants is always an array
+            const variants = (product.variants || []).map(variant => {
                 const basePrice = variant.price;
                 let finalPrice = basePrice;
                 let highestDiscountPercentage = 0;
@@ -59,28 +60,29 @@ const getProductData = async(req, res) => {
                     highestDiscountPercentage = Math.max(highestDiscountPercentage, variant.discount);
                 }
             
-                // Check product offer
                 if (product.offer && product.offer.isActive) {
                     highestDiscountPercentage = Math.max(highestDiscountPercentage, product.offer.percentage);
                 }
             
-                // Check category offer
-                if (product.category.offer && product.category.offer.isActive) {
+                if (product.category && product.category.offer && product.category.offer.isActive) {
                     highestDiscountPercentage = Math.max(highestDiscountPercentage, product.category.offer.percentage);
                 }
             
-                // Apply the highest discount
                 finalPrice *= (1 - highestDiscountPercentage / 100);
 
                 return {
-                    ...variant,
-                    finalPrice: Math.round(finalPrice * 100) / 100
+                    _id: variant._id.toString(), // Ensure variant ID is included and as string
+                    size: variant.size,
+                    price: basePrice,
+                    discount: variant.discount,
+                    finalPrice: Math.round(finalPrice * 100) / 100,
+                    stock: variant.stock
                 };
             });
 
             return {
                 ...product,
-                variants,
+                variants, // Return all variants
                 isBlocked: product.isBlocked ?? false
             };
         });
@@ -113,6 +115,7 @@ const addProduct = async(req, res) => {
             offer
         } = req.body;
 
+        // Validate variants
         if(!variants || !Array.isArray(variants) || variants.length === 0) {
             return res.status(400).json({
                 message: 'At least one variant is required',
@@ -120,15 +123,35 @@ const addProduct = async(req, res) => {
             });
         }
 
-        // CRITICAL ERROR: Using Product model instead of Category model
-        // Should be:
-        // const categoryData = await Category.findById(category).select('offer');
+        // Check for duplicate sizes
+        const sizes = variants.map(v => v.size.toLowerCase().trim());
+        const uniqueSizes = new Set(sizes);
+        if (sizes.length !== uniqueSizes.size) {
+            return res.status(400).json({
+                message: 'Duplicate sizes are not allowed',
+                sizes: sizes
+            });
+        }
+
         const categoryData = await Category.findById(category).select('offer');
 
+        // Process variants with proper validation
         const processedVariants = variants.map(variant => {
+            if (!variant.size || !variant.price || variant.stock === undefined) {
+                throw new Error('Each variant must have size, price, and stock');
+            }
+
             const basePrice = parseFloat(variant.price);
             const variantDiscount = parseFloat(variant.discount || 0);
             
+            if (isNaN(basePrice) || basePrice <= 0) {
+                throw new Error('Invalid price for variant: ' + variant.size);
+            }
+
+            if (isNaN(variantDiscount) || variantDiscount < 0 || variantDiscount > 100) {
+                throw new Error('Invalid discount for variant: ' + variant.size);
+            }
+
             const finalPrice = calculateFinalPrice(
                 basePrice, 
                 variantDiscount, 
@@ -137,7 +160,7 @@ const addProduct = async(req, res) => {
             );
 
             return {
-                size: variant.size,
+                size: variant.size.trim(),
                 price: basePrice,
                 discount: variantDiscount || 0,
                 finalPrice,
@@ -160,10 +183,15 @@ const addProduct = async(req, res) => {
             isBlocked: false
         });
 
-        console.log('New product created:', newProduct);
+        // Fetch the created product with populated data
+        const populatedProduct = await Product.findById(newProduct._id)
+            .populate('category', 'categoryName offer')
+            .lean();
+
+        console.log('New product created:', populatedProduct);
         res.status(201).json({
             message: 'Product added successfully',
-            product: newProduct
+            product: populatedProduct
         });
     } catch(error) {
         if(error.code === 11000) {

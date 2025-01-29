@@ -45,7 +45,6 @@ const addAddress = async (req, res) => {
             firstName: addressData.firstName.trim(),
             lastName: addressData.lastName.trim(),
             address: addressData.address.trim(),
-            country: addressData.country.trim(),
             state: addressData.state.trim(),
             city: addressData.city.trim(),
             pincode: addressData.pincode.trim(),
