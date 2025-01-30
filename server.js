@@ -20,10 +20,11 @@ const app = express();
 
 // CORS Options
 const corsOptions = {
-  origin: process.env.CORS || 'http://localhost:5173',
+  origin: process.env.CORS,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   credentials: true,
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  exposedHeaders: ['set-cookie'],
 };
 
 // Middleware
@@ -39,12 +40,16 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: {
-      secure: process.env.NODE_ENV === 'production',
+      secure: false, // Set to false for development
       httpOnly: true,
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      sameSite: 'lax',
+      domain: 'localhost',
+      path: '/',
       maxAge: 24 * 60 * 60 * 1000 // 24 hours
-  }
+  },
+  name: 'sessionId'
 }));
+  
 
 app.use(passport.initialize());
 app.use(passport.session());
@@ -55,17 +60,19 @@ passport.use(
       {
         clientID: process.env.GOOGLE_CLIENT_ID,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-        callbackURL: 'http://localhost:3000/auth/google/callback', // Use absolute URL
+        callbackURL: process.env.GOOGLE_CALLBACK_URL,
         passReqToCallback: true
       },
       async (request, accessToken, refreshToken, profile, done) => {
         try {
-          console.log('Google profile:', profile.emails[0].value); // Add logging
-          let user = await User.findOne({ googleId: profile.id });
+          
+          console.log('Google authentication started for:', profile.emails[0].value);
+          let user = await User.findOne({ email: profile.emails[0].value });
           
           const profileImage = profile.photos?.[0]?.value.replace('=s96-c', '=s400-c') || null;
   
           if (!user) {
+            // Create new user if doesn't exist
             user = new User({
               firstName: profile.name.givenName,
               lastName: profile.name.familyName,
@@ -75,11 +82,45 @@ passport.use(
               isGoogleUser: true,
               verified: true,
               profileImage: profileImage,
+              isBlocked: false
             });
             
             await user.save();
-            console.log('New user created:', user._id); // Add logging
+            console.log('New Google user created:', user._id);
+          } else if (!user.googleId) {
+            // If user exists but doesn't have googleId (registered through email)
+            user.googleId = profile.id;
+            user.isGoogleUser = true;
+            if (profileImage) user.profileImage = profileImage;
+            await user.save();
+            console.log('Existing user linked with Google:', user._id);
           }
+  
+          if (user.isBlocked) {
+            console.log('Blocked user attempted login:', user._id);
+            return done(null, false, { message: 'Your account is blocked. Contact support.' });
+          }
+  
+          // Generate tokens
+          const accessToken = jwt.sign(
+            { userId: user._id, email: user.email },
+            process.env.ACCESS_TOKEN_SECRET,
+            { expiresIn: '15m' }
+          );
+  
+          const refreshToken = jwt.sign(
+            { userId: user._id, email: user.email },
+            process.env.REFRESH_TOKEN_SECRET,
+            { expiresIn: '7d' }
+          );
+  
+          // Store refresh token in user document
+          user.refreshToken = refreshToken;
+          await user.save();
+  
+          // Attach tokens to user object
+          user.accessToken = accessToken;
+          user.refreshToken = refreshToken;
   
           return done(null, user);
         } catch (error) {
@@ -89,21 +130,21 @@ passport.use(
       }
     )
   );
-
-
-
-passport.serializeUser((user, done) => {
-  done(null, user.id);
-});
-
-passport.deserializeUser(async (id, done) => {
-  try {
+  
+  // Serialize user for the session
+  passport.serializeUser((user, done) => {
+    done(null, user.id);
+  });
+  
+  // Deserialize user from the session
+  passport.deserializeUser(async (id, done) => {
+    try {
       const user = await User.findById(id).select('-password -salt');
       done(null, user);
-  } catch (error) {
+    } catch (error) {
       done(error, null);
-  }
-});
+    }
+  });
 
 
 // Connect to MongoDB

@@ -31,60 +31,136 @@ authRoute.get('/google', (req, res, next) => {
   });
 
 // Google OAuth callback
+// In authRoute.js - Update the callback route
+
 authRoute.get('/google/callback',
     passport.authenticate('google', { 
-      failureRedirect: '/user/login',
-      session: true
+        failureRedirect: `${process.env.CORS}/user/login`,
+        session: true,
+        failureMessage: true
     }),
     async (req, res) => {
-      try {
-        if (!req.user) {
-          console.log('No user found in request');
-          return res.redirect('http://localhost:5173/user/login');
+        try {
+            if (!req.user) {
+                return res.redirect(`${process.env.CORS}/user/login?error=authentication_failed`);
+            }
+
+            // Generate tokens
+            const accessToken = jwt.sign(
+                { userId: req.user._id, email: req.user.email },
+                process.env.ACCESS_TOKEN_SECRET,
+                { expiresIn: '15m' }
+            );
+
+            const refreshToken = jwt.sign(
+                { userId: req.user._id, email: req.user.email },
+                process.env.REFRESH_TOKEN_SECRET,
+                { expiresIn: '7d' }
+            );
+
+            // Update user's refresh token
+            await User.findByIdAndUpdate(req.user._id, { refreshToken });
+
+            // Set cookies
+            res.cookie('accessToken', accessToken, {
+                httpOnly: true,
+                secure: false, // Set to true in production
+                sameSite: 'lax',
+                maxAge: 24 * 60 * 60 * 1000 // 24 hours
+            });
+
+            // Redirect to frontend with success status
+            const redirectUrl = new URL(`${process.env.CORS}/user/auth/google/callback`);
+            redirectUrl.searchParams.set('token', accessToken);
+            redirectUrl.searchParams.set('status', 'success');
+            
+            return res.redirect(redirectUrl.toString());
+        } catch (error) {
+            console.error('Google callback error:', error);
+            return res.redirect(`${process.env.CORS}/user/login?error=server_error`);
         }
-  
-        console.log('User authenticated:', req.user._id); // Add logging
-  
-        const accessToken = jwt.sign(
-          { userId: req.user._id, email: req.user.email },
-          process.env.ACCESS_TOKEN_SECRET,
-          { expiresIn: '15m' }
-        );
-  
-        const refreshToken = jwt.sign(
-          { userId: req.user._id, email: req.user.email },
-          process.env.REFRESH_TOKEN_SECRET,
-          { expiresIn: '7d' }
-        );
-  
-        // Update user's refresh token in database
-        await User.findByIdAndUpdate(req.user._id, { refreshToken });
-  
-        // Set cookies with explicit domain
-        res.cookie('accessToken', accessToken, {
-          httpOnly: true,
-          secure: false, // Set to true in production
-          sameSite: 'lax',
-          path: '/',
-          maxAge: 15 * 60 * 1000
-        });
-  
-        res.cookie('refreshToken', refreshToken, {
-          httpOnly: true,
-          secure: false, // Set to true in production
-          sameSite: 'lax',
-          path: '/',
-          maxAge: 7 * 24 * 60 * 60 * 1000
-        });
-  
-        console.log('Redirecting to home page'); // Add logging
-        return res.redirect('http://localhost:5173/user/home');
-      } catch (error) {
-        console.error('Google auth callback error:', error);
-        return res.redirect('http://localhost:5173/user/login');
-      }
     }
-  );
+);
+
+// Add a new endpoint to verify the authentication state
+authRoute.get('/verify-auth', verifySession, async (req, res) => {
+    try {
+        if (!req.user) {
+            return res.status(401).json({
+                error: true,
+                message: 'Not authenticated'
+            });
+        }
+
+        res.json({
+            error: false,
+            user: {
+                id: req.user._id,
+                firstName: req.user.firstName,
+                lastName: req.user.lastName,
+                email: req.user.email,
+                profileImage: req.user.profileImage,
+                isGoogleUser: true,
+                verified: true
+            }
+        });
+    } catch (error) {
+        console.error('Verify auth error:', error);
+        res.status(500).json({
+            error: true,
+            message: 'Server error'
+        });
+    }
+});
+
+authRoute.get('/google/success', async (req, res) => {
+    try {
+        // Get token from authorization header
+        const authHeader = req.headers.authorization;
+        const token = authHeader && authHeader.split(' ')[1];
+
+        if (!token) {
+            return res.status(401).json({
+                error: true,
+                message: 'No token provided'
+            });
+        }
+
+        // Verify token
+        const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+        const user = await User.findById(decoded.userId);
+
+        if (!user) {
+            return res.status(404).json({
+                error: true,
+                message: 'User not found'
+            });
+        }
+
+        res.json({
+            error: false,
+            message: 'Successfully authenticated',
+            user: {
+                id: user._id,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                email: user.email,
+                profileImage: user.profileImage,
+                isGoogleUser: true,
+                verified: true
+            },
+            token
+        });
+    } catch (error) {
+        console.error('Google success route error:', error);
+        res.status(401).json({
+            error: true,
+            message: 'Invalid token'
+        });
+    }
+});
+
+  
 // Login success endpoint with token verification
 authRoute.get('/login/success', verifySession, async (req, res) => {
     try {
