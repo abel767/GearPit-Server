@@ -1,7 +1,7 @@
 const Order = require('../../models/Order/orderModel');
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit-table');
-
+const User = require('../../models/User/userModel')
 // Helper function to get date range
 const getDateRange = (period) => {
     const end = new Date();
@@ -138,7 +138,9 @@ const downloadExcelReport = async (req, res) => {
                 $lte: dateRange.end
             },
             status: { $nin: ['cancelled'] }
-        }).sort({ createdAt: 1 });
+        })
+        .populate('userId', 'firstName lastName')  // Populate user data with specific fields
+        .sort({ createdAt: 1 });
 
         const workbook = new ExcelJS.Workbook();
         const worksheet = workbook.addWorksheet('Sales Report');
@@ -146,19 +148,21 @@ const downloadExcelReport = async (req, res) => {
         worksheet.columns = [
             { header: 'Order ID', key: 'orderId', width: 20 },
             { header: 'Date', key: 'date', width: 15 },
-            { header: 'Customer', key: 'customer', width: 20 },
+            { header: 'Customer Name', key: 'customerName', width: 25 },
             { header: 'Amount', key: 'amount', width: 15 },
-            { header: 'Discount', key: 'discount', width: 15 },
             { header: 'Status', key: 'status', width: 15 }
         ];
 
         orders.forEach(order => {
+            const customerName = order.userId ? 
+                `${order.userId.firstName || ''} ${order.userId.lastName || ''}`.trim() : 
+                'N/A';
+
             worksheet.addRow({
                 orderId: order._id,
                 date: order.createdAt.toISOString().split('T')[0],
-                customer: order.customerName,
+                customerName: customerName,
                 amount: order.totalAmount,
-                discount: (order.couponDiscount || 0) + (order.offerDiscount || 0),
                 status: order.status
             });
         });
@@ -194,7 +198,9 @@ const downloadPdfReport = async (req, res) => {
                 $lte: dateRange.end
             },
             status: { $nin: ['cancelled'] }
-        }).sort({ createdAt: 1 });
+        })
+        .populate('userId', 'firstName lastName')  // Populate user data with specific fields
+        .sort({ createdAt: 1 });
 
         const doc = new PDFDocument();
         res.setHeader('Content-Type', 'application/pdf');
@@ -205,15 +211,20 @@ const downloadPdfReport = async (req, res) => {
         doc.moveDown();
 
         const tableData = {
-            headers: ['Order ID', 'Date', 'Customer', 'Amount', 'Discount', 'Status'],
-            rows: orders.map(order => [
-                order._id.toString(),
-                order.createdAt.toISOString().split('T')[0],
-                order.customerName,
-                order.totalAmount.toFixed(2),
-                ((order.couponDiscount || 0) + (order.offerDiscount || 0)).toFixed(2),
-                order.status
-            ])
+            headers: ['Order ID', 'Date', 'Customer Name', 'Amount', 'Status'],
+            rows: orders.map(order => {
+                const customerName = order.userId ? 
+                    `${order.userId.firstName || ''} ${order.userId.lastName || ''}`.trim() : 
+                    'N/A';
+
+                return [
+                    order._id.toString(),
+                    order.createdAt.toISOString().split('T')[0],
+                    customerName,
+                    order.totalAmount.toFixed(2),
+                    order.status
+                ];
+            })
         };
 
         await doc.table(tableData, {
@@ -227,7 +238,6 @@ const downloadPdfReport = async (req, res) => {
         res.status(500).json({ success: false, error: error.message });
     }
 };
-
 module.exports = {
     getSalesReport,
     downloadExcelReport,

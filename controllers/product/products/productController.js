@@ -12,11 +12,6 @@ const calculateFinalPrice = (basePrice, variantDiscount = 0, productOffer = null
     let finalPrice = basePrice;
     let highestDiscountPercentage = 0;
 
-    // Check variant discount
-    if (variantDiscount > 0) {
-        highestDiscountPercentage = Math.max(highestDiscountPercentage, variantDiscount);
-    }
-
     // Check product offer
     if (productOffer && productOffer.isActive && productOffer.percentage > 0) {
         highestDiscountPercentage = Math.max(highestDiscountPercentage, productOffer.percentage);

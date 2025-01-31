@@ -58,8 +58,8 @@ const generateInvoice = async (req, res) => {
       .text('Item', 50, tableTop)
       .text('Qty', 180, tableTop)
       .text('Price', 230, tableTop)
-      .text('Product Offer', 320, tableTop)
-      .text('Category Offer', 390, tableTop)
+      .text('Product Offer', 300, tableTop)
+      .text('Category Offer', 370, tableTop)
       .text('Net Price', 480, tableTop);
 
     doc.moveTo(50, 325)
@@ -75,14 +75,12 @@ const generateInvoice = async (req, res) => {
     order.items.forEach(item => {
       const product = item.productId;
       
-      // Find matching variant
       const variant = product.variants.find(v => v._id.toString() === item.variantId.toString());
       if (!variant) return;
 
       const originalPrice = variant.price;
       const totalOriginalPrice = originalPrice * item.quantity;
       
-      // Calculate product offer discount
       let productDiscountAmount = 0;
       let priceAfterProductDiscount = totalOriginalPrice;
       
@@ -91,7 +89,6 @@ const generateInvoice = async (req, res) => {
         priceAfterProductDiscount = totalOriginalPrice - productDiscountAmount;
       }
 
-      // Calculate category offer discount
       let categoryDiscountAmount = 0;
       if (product.category && product.category.offer && product.category.offer.isActive) {
         categoryDiscountAmount = (priceAfterProductDiscount * product.category.offer.percentage) / 100;
@@ -99,18 +96,16 @@ const generateInvoice = async (req, res) => {
 
       const finalPrice = priceAfterProductDiscount - categoryDiscountAmount;
       
-      // Add to totals
       subtotal += totalOriginalPrice;
       totalProductDiscount += productDiscountAmount;
       totalCategoryDiscount += categoryDiscountAmount;
 
-      // Display item details
       doc.text(product.productName + ` (${variant.size})`, 50, y)
          .text(item.quantity.toString(), 180, y)
          .text(`₹${originalPrice.toFixed(2)}`, 230, y)
-         .text(product.offer?.isActive ? `${product.offer.percentage}%` : '-', 320, y)
-         .text(product.category?.offer?.isActive ? `${product.category.offer.percentage}%` : '-', 390, y)
-         .text(`₹${(finalPrice).toFixed(2)}`, 480, y);
+         .text(product.offer?.isActive ? `${product.offer.percentage}%` : '-', 300, y)
+         .text(product.category?.offer?.isActive ? `${product.category.offer.percentage}%` : '-', 370, y)
+         .text(`₹${finalPrice.toFixed(2)}`, 480, y);
       
       y += 20;
     });
@@ -126,22 +121,32 @@ const generateInvoice = async (req, res) => {
     // Total Calculation
     const totalY = y + 100;
     const totalDiscount = totalProductDiscount + totalCategoryDiscount;
-    const finalTotal = subtotal - totalDiscount;
-    
+    let finalTotal = subtotal - totalDiscount;
+
     doc.fontSize(10)
       .text('Subtotal:', 380, totalY)
       .text(`₹${subtotal.toFixed(2)}`, 480, totalY)
       .text('Product Offers:', 380, totalY + 20)
       .text(`-₹${totalProductDiscount.toFixed(2)}`, 480, totalY + 20)
       .text('Category Offers:', 380, totalY + 40)
-      .text(`-₹${totalCategoryDiscount.toFixed(2)}`, 480, totalY + 40)
-      .text('Total Discount:', 380, totalY + 60)
-      .text(`-₹${totalDiscount.toFixed(2)}`, 480, totalY + 60);
+      .text(`-₹${totalCategoryDiscount.toFixed(2)}`, 480, totalY + 40);
+
+    // Add coupon discount if applied
+    let currentY = totalY + 60;
+    if (order.coupon) {
+      doc.text('Coupon Discount:', 380, currentY)
+         .text(`-₹${order.coupon.discountAmount.toFixed(2)}`, 480, currentY);
+      finalTotal -= order.coupon.discountAmount;
+      currentY += 20;
+    }
+
+    doc.text('Total Discount:', 380, currentY)
+       .text(`-₹${(totalDiscount + (order.coupon ? order.coupon.discountAmount : 0)).toFixed(2)}`, 480, currentY);
 
     // Final Total
     doc.fontSize(12)
-      .text('Final Total', 380, totalY + 90, { bold: true })
-      .text(`₹${finalTotal.toFixed(2)}`, 480, totalY + 90, { bold: true });
+      .text('Final Total', 380, currentY + 30, { bold: true })
+      .text(`₹${finalTotal.toFixed(2)}`, 480, currentY + 30, { bold: true });
 
     // Footer
     doc.fontSize(10)
