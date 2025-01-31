@@ -20,17 +20,29 @@ const app = express();
 
 // CORS Options
 const corsOptions = {
-  origin: process.env.CORS,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
   credentials: true,
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  exposedHeaders: ['set-cookie'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization',
+    'X-Requested-With',
+    'Accept',
+    'Origin',
+    'Access-Control-Allow-Headers',
+    'Access-Control-Allow-Origin',
+    'Access-Control-Allow-Credentials'
+  ],
+  exposedHeaders: ['set-cookie']
 };
+
+app.use(cors(corsOptions));
+
 
 // Middleware
 app.use(cors(corsOptions));
-app.use(cookieParser());
-
+app.use(cookieParser(process.env.COOKIE_SECRET));
+app.options('*', cors(corsOptions));  // Move this before routes
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -40,14 +52,11 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: {
-      secure: false, // Set to false for development
-      httpOnly: true,
-      sameSite: 'lax',
-      domain: 'localhost',
-      path: '/',
-      maxAge: 24 * 60 * 60 * 1000 // 24 hours
-  },
-  name: 'sessionId'
+    secure: process.env.NODE_ENV === 'production', // true in production
+    httpOnly: true,
+    sameSite: 'lax',
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  }
 }));
   
 

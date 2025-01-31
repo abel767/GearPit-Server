@@ -16,13 +16,12 @@ const categoryData = async (req, res) => {
 
 
 const addCategoryData = async (req, res) => {
-    // Creates a new category with optional description and active status
     try {
         const { categoryName, description = '', isActive = true } = req.body;
 
-        // Check for existing category to prevent duplicates
+        // Check for existing category with case-insensitive search
         const existingCategory = await Category.findOne({
-            categoryName: categoryName
+            categoryName: { $regex: new RegExp(`^${categoryName}$`, 'i') }
         });
 
         if (existingCategory) {

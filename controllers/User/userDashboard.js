@@ -31,43 +31,48 @@ const getProfileData = async(req,res)=>{
     }
 }
 
-const updateUserProfile = async (req,res)=>{
-    try{
-        const userId = req.params.id
-        const {formData} = req.body
+const updateUserProfile = async (req, res) => {
+    try {
+        const userId = req.params.id;
+        // Destructure directly from req.body since formData is no longer nested
+        const { firstName, lastName, userName, email, phone } = req.body;
 
-        if(!userId){
-            return res.status(400).json({message: 'User ID is required'})
+        if (!userId) {
+            return res.status(400).json({ message: 'User ID is required' });
         }
 
         const updatedUser = await User.findByIdAndUpdate(
             userId,
             {
-                firstName: formData.firstName,
-                lastName: formData.lastName,
-                userName: formData.userName,
-                email: formData.email,
-                phone: formData.phone
+                firstName,
+                lastName,
+                userName,
+                email,
+                phone
             },
             {
-              new: true, runValidators: true
+                new: true,
+                runValidators: true
             }
-        )
+        );
 
-        if(!updatedUser){
-            return res.status(404).json({message: 'User not found '})
+        if (!updatedUser) {
+            return res.status(404).json({ message: 'User not found' });
         }
 
         res.status(200).json({
             message: 'Profile updated successfully',
             user: updatedUser
-        })
+        });
 
-    }catch(error){
-     console.log('profile update error', error)
-     res.status(500).json({message: 'Error updating profile', error: error.message})
+    } catch (error) {
+        console.log('profile update error', error);
+        res.status(500).json({
+            message: 'Error updating profile',
+            error: error.message
+        });
     }
-}
+};
 
 
 const changePassword = async(req,res)=>{

@@ -211,77 +211,77 @@ const addProduct = async(req, res) => {
     }
 };
 
-const editProduct = async(req, res) => {
+const editProduct = async (req, res) => {
     try {
-        const { id } = req.params;
-        const updateData = req.body;
-
-        if(!id) {
-            return res.status(400).json({message: 'Product ID is required'});
-        }
-
-        const existingProduct = await Product.findById(id);
-        if(!existingProduct) {
-            return res.status(404).json({message: 'Product not found'});
-        }
-
-        // Fetch category to check for category offer
-        const categoryData = await Category.findById(updateData.category || existingProduct.category)
-            .select('offer');
-
-        const processedVariants = updateData.variants.map(variant => {
-            const basePrice = parseFloat(variant.price);
-            const variantDiscount = parseFloat(variant.discount || 0);
-            
-            const finalPrice = calculateFinalPrice(
-                basePrice, 
-                variantDiscount, 
-                updateData.offer || existingProduct.offer, 
-                categoryData?.offer
-            );
-
-            return {
-                size: variant.size,
-                price: basePrice,
-                discount: variantDiscount,
-                finalPrice,
-                stock: parseInt(variant.stock)
-            };
-        });
-
-        const updateObject = {
-            productName: updateData.productName,
-            category: updateData.category,
-            type: updateData.type || existingProduct.type,
-            brand: updateData.brand || existingProduct.brand,
-            description: updateData.description || existingProduct.description,
-            images: updateData.images || existingProduct.images,
-            variants: processedVariants,
-            offer: updateData.offer || existingProduct.offer,
-            updatedAt: new Date()
-        };
-
-        const updatedProduct = await Product.findByIdAndUpdate(
-            id,
-            updateObject,
-            {
-                new: true,
-                runValidators: true
-            }
+      const { id } = req.params;
+      const updateData = req.body;
+  
+      if (!id) {
+        return res.status(400).json({ message: 'Product ID is required' });
+      }
+  
+      const existingProduct = await Product.findById(id);
+      if (!existingProduct) {
+        return res.status(404).json({ message: 'Product not found' });
+      }
+  
+      // Fetch category to check for category offer
+      const categoryData = await Category.findById(updateData.category || existingProduct.category)
+        .select('offer');
+  
+      const processedVariants = updateData.variants.map(variant => {
+        const basePrice = parseFloat(variant.price);
+        const variantDiscount = parseFloat(variant.discount || 0);
+  
+        const finalPrice = calculateFinalPrice(
+          basePrice,
+          variantDiscount,
+          updateData.offer || existingProduct.offer,
+          categoryData?.offer
         );
-
-        if(!updatedProduct) {
-            return res.status(404).json({message: 'Product not found'});
+  
+        return {
+          size: variant.size,
+          price: basePrice,
+          discount: variantDiscount,
+          finalPrice,
+          stock: parseInt(variant.stock)
+        };
+      });
+  
+      const updateObject = {
+        productName: updateData.productName,
+        category: updateData.category,
+        type: updateData.type || existingProduct.type,
+        brand: updateData.brand || existingProduct.brand,
+        description: updateData.description || existingProduct.description,
+        images: updateData.images || existingProduct.images, // Use new images if provided
+        variants: processedVariants,
+        offer: updateData.offer || existingProduct.offer,
+        updatedAt: new Date()
+      };
+  
+      const updatedProduct = await Product.findByIdAndUpdate(
+        id,
+        updateObject,
+        {
+          new: true,
+          runValidators: true
         }
-
-        res.status(200).json({
-            message: 'Product updated successfully',
-            product: updatedProduct
-        });
-    } catch(error) {
-        handleControllerError(res, error, 'Error updating product');
+      );
+  
+      if (!updatedProduct) {
+        return res.status(404).json({ message: 'Product not found' });
+      }
+  
+      res.status(200).json({
+        message: 'Product updated successfully',
+        product: updatedProduct
+      });
+    } catch (error) {
+      handleControllerError(res, error, 'Error updating product');
     }
-};
+  };
 
 const toggleProductStatus = async (req, res) => {
     try {

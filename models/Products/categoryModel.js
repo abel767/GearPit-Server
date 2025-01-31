@@ -3,7 +3,8 @@ const mongoose = require('mongoose');
 const categorySchema = new mongoose.Schema({
     categoryName: {
         type: String,
-        required: true
+        required: true,
+        index: true
     },
     isActive: {
         type: Boolean,

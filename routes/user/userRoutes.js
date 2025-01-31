@@ -80,15 +80,26 @@ userRoute.get('/address/:id',verifyToken, getAddresses)
 userRoute.put('/address/:id/:addressId',verifyToken, updateAddress)
 userRoute.delete('/address/:id/:addressId',verifyToken, deleteAddress)
 
+
+//razor pay
+
+userRoute.post('/payment-failure', verifyToken, handlePaymentFailure);
+userRoute.post('/orders/:orderId/retry-payment', verifyToken, retryPayment);
+userRoute.post('/create-payment',verifyToken, createPaymentOrder);
+userRoute.post('/verify-payment',verifyToken, verifyPayment);
+
+userRoute.post('/test-payment-failure', (req, res) => {
+    console.log('Test route hit');
+    res.json({ message: 'Test route working' });
+  });
 // Order routes
-userRoute.post('/orders', createOrder); 
+userRoute.post('/orders', verifyToken, createOrder); 
 userRoute.get('/orders/detail/:orderId',verifyToken, getOrderById);  
 userRoute.get('/orders/user/:userId',verifyToken, getOrders);        
 userRoute.put('/orders/:orderId/cancel',verifyToken, cancelOrder);
 userRoute.get('/orders/:orderId/status',verifyToken, getOrderStatus); 
 userRoute.post('/orders/:orderId/retry-payment', verifyToken, retryPayment);
 userRoute.get('/orders/razorpay/:razorpayOrderId', verifyToken, getOrderByRazorpayId);
-userRoute.post('/razorpay/verify-retry-payment', verifyToken, verifyRetryPayment);
 
 //cart
 userRoute.post('/cart/add',verifyToken, addToCart);
@@ -96,10 +107,6 @@ userRoute.get('/cart/:userId',verifyToken, getCart);
 userRoute.put('/cart/update',verifyToken, updateCartItem);
 userRoute.delete('/cart/remove/:userId/:productId/:variantId',verifyToken, removeFromCart);
 
-//razor pay
-userRoute.post('/create-payment',verifyToken, createPaymentOrder);
-userRoute.post('/verify-payment',verifyToken, verifyPayment);
-userRoute.post('/razorpay/payment-failure', verifyToken, handlePaymentFailure);
 
 // counpon route
 userRoute.post("/validate-coupon",verifyToken,validateCoupon);

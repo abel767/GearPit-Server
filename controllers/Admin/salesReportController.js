@@ -132,52 +132,34 @@ const downloadExcelReport = async (req, res) => {
             ? { start: new Date(startDate), end: new Date(endDate) }
             : getDateRange(period);
 
-        const salesData = await Order.aggregate([
-            {
-                $match: {
-                    createdAt: {
-                        $gte: dateRange.start,
-                        $lte: dateRange.end
-                    },
-                    status: { $nin: ['cancelled'] }
-                }
+        const orders = await Order.find({
+            createdAt: {
+                $gte: dateRange.start,
+                $lte: dateRange.end
             },
-            {
-                $group: {
-                    _id: {
-                        date: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } }
-                    },
-                    orders: { $sum: 1 },
-                    amount: { $sum: '$totalAmount' },
-                    discount: {
-                        $sum: {
-                            $add: [
-                                { $ifNull: ['$couponDiscount', 0] },
-                                { $ifNull: ['$offerDiscount', 0] }
-                            ]
-                        }
-                    }
-                }
-            },
-            { $sort: { '_id.date': 1 } }
-        ]);
+            status: { $nin: ['cancelled'] }
+        }).sort({ createdAt: 1 });
 
         const workbook = new ExcelJS.Workbook();
         const worksheet = workbook.addWorksheet('Sales Report');
 
         worksheet.columns = [
+            { header: 'Order ID', key: 'orderId', width: 20 },
             { header: 'Date', key: 'date', width: 15 },
-            { header: 'Orders', key: 'orders', width: 10 },
+            { header: 'Customer', key: 'customer', width: 20 },
             { header: 'Amount', key: 'amount', width: 15 },
-            { header: 'Discount', key: 'discount', width: 15 }
+            { header: 'Discount', key: 'discount', width: 15 },
+            { header: 'Status', key: 'status', width: 15 }
         ];
 
-        salesData.forEach(data => {
+        orders.forEach(order => {
             worksheet.addRow({
-                date: data._id.date,
-                orders: data.orders,
-                amount: data.amount,
-                discount: data.discount
+                orderId: order._id,
+                date: order.createdAt.toISOString().split('T')[0],
+                customer: order.customerName,
+                amount: order.totalAmount,
+                discount: (order.couponDiscount || 0) + (order.offerDiscount || 0),
+                status: order.status
             });
         });
 
@@ -206,57 +188,34 @@ const downloadPdfReport = async (req, res) => {
             ? { start: new Date(startDate), end: new Date(endDate) }
             : getDateRange(period);
 
-        const salesData = await Order.aggregate([
-            {
-                $match: {
-                    createdAt: {
-                        $gte: dateRange.start,
-                        $lte: dateRange.end
-                    },
-                    status: { $nin: ['cancelled'] }
-                }
+        const orders = await Order.find({
+            createdAt: {
+                $gte: dateRange.start,
+                $lte: dateRange.end
             },
-            {
-                $group: {
-                    _id: {
-                        date: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } }
-                    },
-                    orders: { $sum: 1 },
-                    amount: { $sum: '$totalAmount' },
-                    discount: {
-                        $sum: {
-                            $add: [
-                                { $ifNull: ['$couponDiscount', 0] },
-                                { $ifNull: ['$offerDiscount', 0] }
-                            ]
-                        }
-                    }
-                }
-            },
-            { $sort: { '_id.date': 1 } }
-        ]);
+            status: { $nin: ['cancelled'] }
+        }).sort({ createdAt: 1 });
 
         const doc = new PDFDocument();
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', 'attachment; filename=sales-report.pdf');
         doc.pipe(res);
 
-        // Add title
         doc.fontSize(16).text('Sales Report', { align: 'center' });
         doc.moveDown();
 
-        // Create table data
         const tableData = {
-            headers: ['Date', 'Orders', 'Amount', 'Discount'],
-            rows: salesData.map(data => [
-                data._id.date,
-                data.orders.toString(),
-                data.amount.toFixed(2),
-                data.discount.toFixed(2)
+            headers: ['Order ID', 'Date', 'Customer', 'Amount', 'Discount', 'Status'],
+            rows: orders.map(order => [
+                order._id.toString(),
+                order.createdAt.toISOString().split('T')[0],
+                order.customerName,
+                order.totalAmount.toFixed(2),
+                ((order.couponDiscount || 0) + (order.offerDiscount || 0)).toFixed(2),
+                order.status
             ])
         };
 
-        // Draw table
         await doc.table(tableData, {
             prepareHeader: () => doc.fontSize(12),
             prepareRow: () => doc.fontSize(10)

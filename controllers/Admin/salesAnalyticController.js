@@ -149,8 +149,69 @@ const getMostSoldCategories = async (req, res) => {
     }
 };
 
+const getMostSoldProducts = async (req, res) => {
+    try {
+        const products = await Order.aggregate([
+            {
+                $match: { 
+                    status: { $nin: ['cancelled'] }
+                }
+            },
+            { $unwind: '$items' },
+            {
+                $lookup: {
+                    from: 'products',
+                    localField: 'items.productId',
+                    foreignField: '_id',
+                    as: 'product'
+                }
+            },
+            { $unwind: '$product' },
+            {
+                $group: {
+                    _id: '$items.productId',
+                    productName: { $first: '$product.productName' },  // Get the product name from the looked-up product
+                    totalSold: { $sum: '$items.quantity' },
+                    totalRevenue: { 
+                        $sum: { 
+                            $multiply: ['$items.price', '$items.quantity'] 
+                        }
+                    }
+                }
+            },
+            {
+                $project: {
+                    _id: 1,
+                    product: '$productName',  // Project the productName as 'product'
+                    totalSold: 1,
+                    totalRevenue: 1,
+                    percentage: {
+                        $multiply: [
+                            {
+                                $divide: [
+                                    '$totalSold',
+                                    { $sum: '$totalSold' }
+                                ]
+                            },
+                            100
+                        ]
+                    }
+                }
+            },
+            { $sort: { totalSold: -1 } },
+            { $limit: 5 }
+        ]);
+
+        res.json({ success: true, data: products });
+    } catch (error) {
+        console.error('Error in getMostSoldProducts:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+};
+
 module.exports = {
     getTodayAnalytics,
     getRevenueData,
-    getMostSoldCategories
+    getMostSoldCategories,
+    getMostSoldProducts
 };

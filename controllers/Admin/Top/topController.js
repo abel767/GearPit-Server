@@ -4,6 +4,7 @@ const Category = require('../../../models/Products/categoryModel');
 
 const getTopProducts = async (req, res) => {
     try {
+        console.log('Fetching top products...');
         const topProducts = await Order.aggregate([
             // Only consider completed orders
             { $match: { status: 'completed' } },
@@ -43,6 +44,9 @@ const getTopProducts = async (req, res) => {
                 }
             }
         ]);
+
+        console.log('Top products result:', topProducts);
+
 
         if (!topProducts.length) {
             return res.json({

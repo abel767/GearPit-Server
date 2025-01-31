@@ -40,7 +40,8 @@ const {
 const {
   getTodayAnalytics,
   getRevenueData,
-  getMostSoldCategories
+  getMostSoldCategories,
+  getMostSoldProducts
 } = require("../../controllers/Admin/salesAnalyticController");
 
 
@@ -78,7 +79,7 @@ const{
 
 // Admin authentication
 adminRoute.post("/login", adminLogin);
-adminRoute.post("/logout",verifyAdmin, adminLogout);
+adminRoute.post("/logout", adminLogout);
 
 // User management
 adminRoute.get("/data", getUserData);
@@ -111,6 +112,8 @@ adminRoute.get("/order-stats", getOrderStats);
 adminRoute.get("/sales/today-analytics", getTodayAnalytics);
 adminRoute.get("/sales/revenue", getRevenueData);
 adminRoute.get("/sales/most-sold-categories", getMostSoldCategories);
+adminRoute.get("/sales/most-sold-products", getMostSoldProducts);
+
 
 // Sales report routes
 adminRoute.get("/sales/report", getSalesReport);
