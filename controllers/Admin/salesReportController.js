@@ -2,7 +2,8 @@ const Order = require('../../models/Order/orderModel');
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit-table');
 const User = require('../../models/User/userModel')
-// Helper function to get date range
+
+
 const getDateRange = (period) => {
     const end = new Date();
     const start = new Date();
