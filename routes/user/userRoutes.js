@@ -56,6 +56,8 @@ const {generateInvoice } =require('../../controllers/invoice pdf/invoicePDF')
 //search engine
 const {searchProducts} = require('../../controllers/product/products/productController')
 
+
+
 // post methods
 userRoute.post('/signup', signUp)
 userRoute.post('/verifyOTP', verifyOTP)
