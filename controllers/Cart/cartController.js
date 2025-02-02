@@ -60,18 +60,54 @@ const addToCart = async (req, res) => {
   const getCart = async (req, res) => {
     try {
       const { userId } = req.params;
+      console.log('Fetching cart for userId:', userId);
+  
       const cart = await Cart.findOne({ userId })
         .populate({
           path: 'items.productId',
-          select: 'productName images variants'
+          select: 'productName images variants isBlocked'
         });
   
-      res.status(200).json(cart || { userId, items: [] });
+      console.log('Initial cart data:', JSON.stringify(cart, null, 2));
+  
+      if (!cart) {
+        return res.status(200).json({ userId, items: [] });
+      }
+  
+      // Debug each item's validity
+      const validItems = cart.items.filter(item => {
+        console.log('Checking item:', JSON.stringify(item, null, 2));
+        
+        if (!item.productId) {
+          console.log('Product not found for item:', item);
+          return false;
+        }
+  
+        const variant = item.productId.variants.find(
+          v => v._id.toString() === item.variantId.toString()
+        );
+        
+        console.log('Found variant:', variant, 'for variantId:', item.variantId);
+        
+        // Keep the item if variant exists (regardless of stock)
+        return !!variant;
+      });
+  
+      // Update cart if items were filtered out
+      if (validItems.length !== cart.items.length) {
+        console.log('Filtered items:', validItems);
+        cart.items = validItems;
+        await cart.save();
+      }
+  
+      console.log('Final cart data:', JSON.stringify(cart, null, 2));
+      res.status(200).json(cart);
     } catch (error) {
       console.error('Get cart error:', error);
       res.status(500).json({ message: 'Error fetching cart' });
     }
   };
+  
   
   // Update cart item quantity
   const updateCartItem = async (req, res) => {

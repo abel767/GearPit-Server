@@ -56,6 +56,7 @@ const {generateInvoice } =require('../../controllers/invoice pdf/invoicePDF')
 //search engine
 const {searchProducts} = require('../../controllers/product/products/productController')
 
+// const { validateStock } = require('../../middleware/stockValidateController');
 
 
 // post methods
@@ -82,6 +83,7 @@ userRoute.get('/address/:id',verifyToken, getAddresses)
 userRoute.put('/address/:id/:addressId',verifyToken, updateAddress)
 userRoute.delete('/address/:id/:addressId',verifyToken, deleteAddress)
 
+// userRoute.post('/products/validate-stock', verifyToken, validateStock);
 
 //razor pay
 
@@ -90,10 +92,7 @@ userRoute.post('/orders/:orderId/retry-payment', verifyToken, retryPayment);
 userRoute.post('/create-payment',verifyToken, createPaymentOrder);
 userRoute.post('/verify-payment',verifyToken, verifyPayment);
 
-userRoute.post('/test-payment-failure', (req, res) => {
-    console.log('Test route hit');
-    res.json({ message: 'Test route working' });
-  });
+
 // Order routes
 userRoute.post('/orders', verifyToken, createOrder); 
 userRoute.get('/orders/detail/:orderId',verifyToken, getOrderById);  

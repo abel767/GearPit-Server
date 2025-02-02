@@ -224,7 +224,11 @@ const editProduct = async (req, res) => {
       const categoryData = await Category.findById(updateData.category || existingProduct.category)
         .select('offer');
   
+      // Process variants while preserving existing IDs
       const processedVariants = updateData.variants.map(variant => {
+        // Find existing variant with same size to preserve its ID
+        const existingVariant = existingProduct.variants.find(v => v.size === variant.size);
+        
         const basePrice = parseFloat(variant.price);
         const variantDiscount = parseFloat(variant.discount || 0);
   
@@ -236,6 +240,7 @@ const editProduct = async (req, res) => {
         );
   
         return {
+          _id: existingVariant?._id, // Preserve existing ID if size matches
           size: variant.size,
           price: basePrice,
           discount: variantDiscount,
@@ -250,7 +255,7 @@ const editProduct = async (req, res) => {
         type: updateData.type || existingProduct.type,
         brand: updateData.brand || existingProduct.brand,
         description: updateData.description || existingProduct.description,
-        images: updateData.images || existingProduct.images, // Use new images if provided
+        images: updateData.images || existingProduct.images,
         variants: processedVariants,
         offer: updateData.offer || existingProduct.offer,
         updatedAt: new Date()
