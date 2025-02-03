@@ -65,7 +65,8 @@ const addToCart = async (req, res) => {
       const cart = await Cart.findOne({ userId })
         .populate({
           path: 'items.productId',
-          select: 'productName images variants isBlocked'
+          select: 'productName images variants isBlocked',
+          model: 'Product'
         });
   
       console.log('Initial cart data:', JSON.stringify(cart, null, 2));
@@ -107,46 +108,84 @@ const addToCart = async (req, res) => {
       res.status(500).json({ message: 'Error fetching cart' });
     }
   };
-  
+
   
   // Update cart item quantity
-  const updateCartItem = async (req, res) => {
-    try {
-      const { userId, productId, variantId, quantity } = req.body;
-  
-      const cart = await Cart.findOne({ userId });
-      if (!cart) {
-        return res.status(404).json({ message: 'Cart not found' });
-      }
-  
-      const itemIndex = cart.items.findIndex(
-        item => item.productId.toString() === productId && item.variantId.toString() === variantId
-      );
-  
-      if (itemIndex === -1) {
-        return res.status(404).json({ message: 'Item not found in cart' });
-      }
-  
-      if (quantity <= 0) {
-        cart.items.splice(itemIndex, 1);
-      } else {
-        cart.items[itemIndex].quantity = quantity;
-      }
-  
-      await cart.save();
-  
-      const populatedCart = await Cart.findById(cart._id)
-        .populate({
-          path: 'items.productId',
-          select: 'productName images variants'
-        });
-  
-      res.status(200).json(populatedCart);
-    } catch (error) {
-      console.error('Update cart error:', error);
-      res.status(500).json({ message: 'Error updating cart item' });
+const updateCartItem = async (req, res) => {
+  try {
+    const { userId, productId, variantId, quantity } = req.body;
+
+    // Find cart and validate it exists
+    const cart = await Cart.findOne({ userId });
+    if (!cart) {
+      return res.status(404).json({ message: 'Cart not found' });
     }
-  };
+
+    // Get product and validate it exists and isn't blocked
+    const product = await Product.findById(productId);
+    if (!product || product.isBlocked) {
+      return res.status(400).json({ 
+        message: product ? 'Product is no longer available' : 'Product not found'
+      });
+    }
+
+    // Find variant and validate stock
+    const variant = product.variants.find(v => v._id.toString() === variantId);
+    if (!variant) {
+      return res.status(404).json({ message: 'Product variant not found' });
+    }
+
+    // Check if requested quantity is valid
+    if (quantity > variant.stock) {
+      return res.status(400).json({ 
+        message: 'Not enough stock available',
+        availableStock: variant.stock
+      });
+    }
+
+    // Find current cart item
+    const itemIndex = cart.items.findIndex(
+      item => item.productId.toString() === productId && 
+              item.variantId.toString() === variantId
+    );
+
+    if (itemIndex === -1) {
+      return res.status(404).json({ message: 'Item not found in cart' });
+    }
+
+    // Update or remove item based on quantity
+    if (quantity <= 0) {
+      cart.items.splice(itemIndex, 1);
+    } else {
+      cart.items[itemIndex].quantity = Math.min(quantity, variant.stock);
+    }
+
+    await cart.save();
+
+    // Return populated cart with additional stock info
+    const populatedCart = await Cart.findById(cart._id)
+      .populate({
+        path: 'items.productId',
+        select: 'productName images variants isBlocked'
+      });
+
+    // Add stock info to response
+    const responseData = {
+      cart: populatedCart,
+      stockInfo: {
+        availableStock: variant.stock,
+        requestedQuantity: quantity,
+        actualQuantity: Math.min(quantity, variant.stock)
+      }
+    };
+
+    res.status(200).json(responseData);
+
+  } catch (error) {
+    console.error('Update cart error:', error);
+    res.status(500).json({ message: 'Error updating cart item' });
+  }
+};
   
   // Remove item from cart
   const removeFromCart = async (req, res) => {
