@@ -75,50 +75,52 @@ const handlePaymentFailure = async (req, res) => {
   console.log('Payment failure endpoint hit', JSON.stringify(req.body, null, 2));
 
   try {
-    const { error, orderId } = req.body;
-
-    // Clean up the orderId - handle both formats
-    const cleanOrderId = orderId?.replace('order_', '') || 
-                        error?.metadata?.order_id?.replace('order_', '');
-
-    if (!cleanOrderId) {
+    const { error, orderData } = req.body;
+    
+    // Get the clean order ID from the error metadata
+    const razorpayOrderId = error?.metadata?.order_id;
+    if (!razorpayOrderId) {
       return res.status(400).json({
         success: false,
-        message: 'Order ID is required'
+        message: 'Razorpay Order ID is required'
       });
     }
 
-    console.log('Looking for order with ID:', cleanOrderId);
+    console.log('Looking for order with razorpayOrderId:', razorpayOrderId);
 
-    // Try different ways to find the order
-    let order = await Order.findOne({
-      $or: [
-        { razorpayOrderId: cleanOrderId },
-        { razorpayOrderId: `order_${cleanOrderId}` },
-        { _id: /^[0-9a-fA-F]{24}$/.test(cleanOrderId) ? cleanOrderId : null }
-      ]
-    });
+    // Find or create order
+    let order = await Order.findOne({ razorpayOrderId });
 
-    if (!order) {
+    if (!order && orderData) {
+      // Create a new order if it doesn't exist
+      order = new Order({
+        ...orderData,
+        razorpayOrderId,
+        paymentStatus: 'failed',
+        status: 'pending',
+        paymentRetryCount: 0
+      });
+      await order.save();
+      console.log('Created new order:', order._id);
+    } else if (!order) {
       return res.status(404).json({
         success: false,
-        message: 'Order not found with provided ID'
+        message: 'Order not found and no order data provided'
       });
+    } else {
+      // Update existing order
+      order.paymentStatus = 'failed';
+      order.status = 'pending';
+      order.paymentRetryCount = (order.paymentRetryCount || 0) + 1;
+      await order.save();
     }
-
-    // Update order status
-    order.paymentStatus = 'failed';
-    order.status = 'pending';
-    order.paymentRetryCount = (order.paymentRetryCount || 0) + 1;
-    order.paymentRetryWindow = new Date(Date.now() + 11 * 60000);
-    await order.save();
 
     res.json({
       success: true,
       data: {
         orderId: order._id,
-        orderNumber: order.orderNumber,
-        retryWindowEnds: order.paymentRetryWindow
+        razorpayOrderId: order.razorpayOrderId,
+        orderNumber: order.orderNumber
       }
     });
   } catch (error) {
@@ -130,131 +132,151 @@ const handlePaymentFailure = async (req, res) => {
     });
   }
 };
-  
 
 
 
-  const retryPayment = async (req, res) => {
+const retryPayment = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    
+    // Check if orderId is a Razorpay order ID
+    let order;
+    if (orderId.startsWith('order_')) {
+      order = await Order.findOne({ razorpayOrderId: orderId });
+    } else {
+      // Try to find by MongoDB _id
+      order = await Order.findById(orderId);
+    }
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found'
+      });
+    }
+
+    // Check if order is in a valid state for retry
+    if (order.paymentStatus !== 'failed' || order.status !== 'pending') {
+      return res.status(400).json({
+        success: false,
+        message: 'Order is not eligible for payment retry'
+      });
+    }
+
+    // If there's no razorpayOrderId or if it's expired, create a new one
+    let razorpayOrder;
     try {
-      const { orderId } = req.params;
-      
-      // First try to find order by razorpayOrderId
-      let order = await Order.findOne({ razorpayOrderId: orderId });
-      
-      // If not found and if it's a valid ObjectId, try finding by _id
-      if (!order && /^[0-9a-fA-F]{24}$/.test(orderId)) {
-        order = await Order.findById(orderId);
+      if (order.razorpayOrderId) {
+        // Try to fetch existing order
+        razorpayOrder = await razorpay.orders.fetch(order.razorpayOrderId);
+        
+        // Check if order is still valid (not expired or paid)
+        if (razorpayOrder.status === 'paid' || razorpayOrder.status === 'expired') {
+          throw new Error('Order needs to be recreated');
+        }
+      } else {
+        throw new Error('No existing order');
       }
-  
-      if (!order) {
-        return res.status(404).json({
-          success: false,
-          message: 'Order not found'
-        });
-      }
-  
-      // Check if order is in a valid state for retry
-      if (order.paymentStatus !== 'failed' && order.status !== 'pending') {
-        return res.status(400).json({
-          success: false,
-          message: 'Order is not eligible for payment retry'
-        });
-      }
-  
-      // Check if retry window is still active
-      if (!order.paymentRetryWindow || new Date() > new Date(order.paymentRetryWindow)) {
-        return res.status(400).json({
-          success: false,
-          message: 'Payment retry window has expired'
-        });
-      }
-  
-      // Create new Razorpay order
-      const razorpayOrder = await razorpay.orders.create({
+    } catch (error) {
+      // Create new Razorpay order if fetch fails or order is invalid
+      razorpayOrder = await razorpay.orders.create({
         amount: Math.round(order.totalAmount * 100),
         currency: "INR",
         receipt: `retry_${order._id}`,
         notes: {
-          originalOrderId: order._id.toString(),
-          retryAttempt: (order.paymentRetryCount || 0) + 1
+          originalOrderId: order._id.toString()
         }
       });
-  
-      // Update order with new Razorpay order ID
+      
       order.razorpayOrderId = razorpayOrder.id;
       await order.save();
+    }
+
+    res.json({
+      success: true,
+      data: {
+        orderId: order._id,
+        razorpayOrderId: order.razorpayOrderId,
+        amount: razorpayOrder.amount,
+        currency: razorpayOrder.currency,
+        orderNumber: order.orderNumber,
+        key: process.env.RAZORPAY_KEY_ID
+      }
+    });
+
+  } catch (error) {
+    console.error('Retry payment error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create retry payment',
+      error: error.message
+    });
+  }
+};
+
   
-      res.json({
-        success: true,
-        data: {
-          orderId: razorpayOrder.id,
-          amount: razorpayOrder.amount,
-          currency: razorpayOrder.currency,
-          orderNumber: order.orderNumber,
-          key: process.env.RAZORPAY_KEY_ID
-        }
-      });
-  
-    } catch (error) {
-      console.error('Retry payment error:', error);
-      res.status(500).json({
+    
+const verifyRetryPayment = async (req, res) => {
+  try {
+    const { 
+      razorpay_payment_id, 
+      razorpay_order_id, 
+      razorpay_signature,
+      orderId  // MongoDB order ID
+    } = req.body;
+
+    // Verify signature
+    const shasum = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET);
+    shasum.update(`${razorpay_order_id}|${razorpay_payment_id}`);
+    const digest = shasum.digest('hex');
+
+    if (digest !== razorpay_signature) {
+      return res.status(400).json({
         success: false,
-        message: 'Failed to create retry payment',
-        error: error.message
+        message: 'Invalid payment signature'
       });
     }
-  };
-  
-  
-    
-    const verifyRetryPayment = async (req, res) => {
-      try {
-        const { razorpay_payment_id, razorpay_order_id, razorpay_signature, orderId } = req.body;
-    
-        // Verify signature
-        const shasum = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET);
-        shasum.update(`${razorpay_order_id}|${razorpay_payment_id}`);
-        const digest = shasum.digest('hex');
-    
-        if (digest !== razorpay_signature) {
-          return res.status(400).json({
-            success: false,
-            message: 'Invalid payment signature'
-          });
-        }
-    
-        // Update order status
-        const order = await Order.findById(orderId);
-        if (!order) {
-          return res.status(404).json({
-            success: false,
-            message: 'Order not found'
-          });
-        }
-    
-        order.paymentStatus = 'paid';
-        order.status = 'processing';
-        order.paymentId = razorpay_payment_id;
-        await order.save();
-    
-        res.json({
-          success: true,
-          message: 'Payment verified successfully',
-          data: {
-            orderId: order._id,
-            orderNumber: order.orderNumber,
-            status: order.status
-          }
-        });
-      } catch (error) {
-        console.error('Payment verification error:', error);
-        res.status(500).json({
-          success: false,
-          message: 'Payment verification failed',
-          error: error.message
-        });
+
+    // Update order status
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found'
+      });
+    }
+
+    // Verify the razorpay_order_id matches
+    if (order.razorpayOrderId !== razorpay_order_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Order ID mismatch'
+      });
+    }
+
+    order.paymentStatus = 'paid';
+    order.status = 'processing';
+    order.paymentId = razorpay_payment_id;
+    await order.save();
+
+    res.json({
+      success: true,
+      message: 'Payment verified successfully',
+      data: {
+        orderId: order._id,
+        orderNumber: order.orderNumber,
+        status: order.status
       }
-    };
+    });
+  } catch (error) {
+    console.error('Payment verification error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Payment verification failed',
+      error: error.message
+    });
+  }
+};
   
   module.exports ={
       createPaymentOrder,

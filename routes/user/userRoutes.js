@@ -91,7 +91,7 @@ userRoute.post('/payment-failure', verifyToken, handlePaymentFailure);
 userRoute.post('/orders/:orderId/retry-payment', verifyToken, retryPayment);
 userRoute.post('/create-payment',verifyToken, createPaymentOrder);
 userRoute.post('/verify-payment',verifyToken, verifyPayment);
-
+userRoute.post('/verify-retry-payment',verifyToken,verifyRetryPayment )
 
 // Order routes
 userRoute.post('/orders', verifyToken, createOrder); 
