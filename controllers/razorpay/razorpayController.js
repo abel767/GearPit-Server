@@ -1,6 +1,7 @@
 const Razorpay = require('razorpay')
 const crypto = require('crypto')
 const Order = require('../../models/Order/orderModel')
+const Product = require('../../models/Products/productModel');
 const razorpay = new Razorpay({
     key_id: process.env.RAZORPAY_KEY_ID,
     key_secret: process.env.RAZORPAY_KEY_SECRET
@@ -252,6 +253,26 @@ const verifyRetryPayment = async (req, res) => {
         success: false,
         message: 'Order ID mismatch'
       });
+    }
+    
+    // updating stock for each items
+    for (const item of order.items) {
+      const product = await Product.findById(item.productId);
+      if (!product) {
+        throw new Error(`Product ${item.productId} not found`);
+      }
+
+      const variant = product.variants.id(item.variantId);
+      if (!variant) {
+        throw new Error(`Variant not found for product ${product.productName}`);
+      }
+
+      if (variant.stock < item.quantity) {
+        throw new Error(`Insufficient stock for ${product.productName} - ${variant.size}`);
+      }
+
+      variant.stock -= item.quantity;
+      await product.save();
     }
 
     order.paymentStatus = 'paid';
