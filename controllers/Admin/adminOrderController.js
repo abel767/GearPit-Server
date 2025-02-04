@@ -12,9 +12,8 @@ const getAllOrders = async (req, res) => {
         path: 'items.productId',
         select: 'productName images price'
       })
-      .sort({ createdAt: -1 }); // Sort by newest first
+      .sort({ createdAt: -1 });
 
-    // Transform the orders to include full name
     const transformedOrders = orders.map(order => {
       const orderObj = order.toObject();
       if (orderObj.userId) {
@@ -36,7 +35,6 @@ const getAllOrders = async (req, res) => {
     });
   }
 };
-
 // Update order status
 const updateOrderStatus = async (req, res) => {
   try {
