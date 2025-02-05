@@ -23,7 +23,8 @@ const {
     addToCart, 
     getCart, 
     updateCartItem, 
-    removeFromCart 
+    removeFromCart,
+    clearCart
 } = require('../../controllers/Cart/cartController');
 
 // razor pay
@@ -107,7 +108,7 @@ userRoute.post('/cart/add',verifyToken, addToCart);
 userRoute.get('/cart/:userId',verifyToken, getCart);
 userRoute.put('/cart/update',verifyToken, updateCartItem);
 userRoute.delete('/cart/remove/:userId/:productId/:variantId',verifyToken, removeFromCart);
-
+userRoute.delete('/cart/clear/:userId', verifyToken, clearCart);
 
 // counpon route
 userRoute.post("/validate-coupon",verifyToken,validateCoupon);
