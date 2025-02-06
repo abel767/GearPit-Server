@@ -9,6 +9,9 @@ const {signUp, verifyOTP, resendOTP, refreshTokenController, login ,logout, getU
 const {getProfileData, updateUserProfile, changePassword, profileImageUpdate} = require('../../controllers/User/userDashboard')
 // user addresses controller
 const {addAddress, getAddresses, updateAddress, deleteAddress} = require('../../controllers/User/userAddressController')
+
+// stock validation middleware
+const {validateStock} = require('../../middleware/stockValidationController')
 // order controllers
 const { createOrder, getOrderById, getOrders, getOrderStatus , cancelOrder,getOrderByRazorpayId } = require('../../controllers/Order/orderController');
 
@@ -93,6 +96,9 @@ userRoute.post('/orders/:orderId/retry-payment', verifyToken, retryPayment);
 userRoute.post('/create-payment',verifyToken, createPaymentOrder);
 userRoute.post('/verify-payment',verifyToken, verifyPayment);
 userRoute.post('/verify-retry-payment',verifyToken,verifyRetryPayment )
+
+//validate stock
+userRoute.post('/validate-stock', verifyToken, validateStock)
 
 // Order routes
 userRoute.post('/orders', verifyToken, createOrder); 
