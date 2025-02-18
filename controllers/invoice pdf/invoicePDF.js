@@ -1,5 +1,6 @@
 const PDFDocument = require('pdfkit');
 const Order = require('../../models/Order/orderModel');
+const Coupon = require('../../models/Coupon/couponModel');
 
 const generateInvoice = async (req, res) => {
   try {
@@ -131,22 +132,55 @@ const generateInvoice = async (req, res) => {
       .text('Category Offers:', 380, totalY + 40)
       .text(`-₹${totalCategoryDiscount.toFixed(2)}`, 480, totalY + 40);
 
-    // Add coupon discount if applied
+    // Add coupon section with enhanced details
     let currentY = totalY + 60;
-    if (order.coupon) {
-      doc.text('Coupon Discount:', 380, currentY)
-         .text(`-₹${order.coupon.discountAmount.toFixed(2)}`, 480, currentY);
-      finalTotal -= order.coupon.discountAmount;
-      currentY += 20;
+    if (order.couponCode) {
+      try {
+        // Fetch coupon details
+        const coupon = await Coupon.findOne({ code: order.couponCode });
+        
+        // Add coupon details box
+        doc.rect(50, currentY, 300, 60)
+           .stroke()
+           .fontSize(10)
+           .text('Coupon Details:', 60, currentY + 5)
+           .fontSize(9)
+           .text(`Code: ${order.couponCode}`, 60, currentY + 20)
+           .text(`Discount: ${coupon ? coupon.discount : ''}%`, 60, currentY + 35)
+           .text(`Min. Purchase: ₹${coupon ? coupon.minPurchase : ''}`, 180, currentY + 20)
+           .text(`Max. Discount: ₹${coupon ? coupon.maxDiscount : ''}`, 180, currentY + 35);
+
+        // Add coupon discount amount to totals
+        doc.fontSize(10)
+           .text('Coupon Discount:', 380, currentY + 20)
+           .text(`-₹${order.discount.toFixed(2)}`, 480, currentY + 20);
+
+        finalTotal -= order.discount;
+        currentY += 80; // Increased spacing after coupon box
+      } catch (error) {
+        console.error('Error fetching coupon details:', error);
+        // Continue without coupon details if there's an error
+        currentY += 20;
+      }
     }
 
+    // Total Discounts (including coupon)
+    const totalDiscountWithCoupon = totalDiscount + (order.discount || 0);
     doc.text('Total Discount:', 380, currentY)
-       .text(`-₹${(totalDiscount + (order.coupon ? order.coupon.discountAmount : 0)).toFixed(2)}`, 480, currentY);
+       .text(`-₹${totalDiscountWithCoupon.toFixed(2)}`, 480, currentY);
 
     // Final Total
     doc.fontSize(12)
-      .text('Final Total', 380, currentY + 30, { bold: true })
+      .text('Final Total:', 380, currentY + 30, { bold: true })
       .text(`₹${finalTotal.toFixed(2)}`, 480, currentY + 30, { bold: true });
+
+    // Payment Method
+    doc.fontSize(10)
+      .text(`Payment Method: ${order.paymentMethod.toUpperCase()}`, 50, currentY + 30);
+
+    if (order.paymentMethod === 'online' && order.paymentId) {
+      doc.text(`Payment ID: ${order.paymentId}`, 50, currentY + 45);
+    }
 
     // Footer
     doc.fontSize(10)

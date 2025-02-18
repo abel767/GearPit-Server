@@ -11,6 +11,14 @@ const {
 const { cloudinaryImageUpload } = require("../../controllers/cloudinary/cloudinaryController");
 const { userCount } = require("../../controllers/Admin/dashboardController");
 
+const {
+  getAllBanners,
+  addBanner,
+  updateBanner,
+  deleteBanner,
+  toggleBannerStatus
+} = require('../../controllers/Admin/bannerController')
+
 // Product and Category controllers
 const {
   getProductData,
@@ -88,6 +96,13 @@ adminRoute.put("/block/:id", isBlock);
 
 // Cloudinary
 adminRoute.get("/generate-upload-url", cloudinaryImageUpload);
+
+//banner routes
+adminRoute.get('/banners', verifyAdmin, getAllBanners);
+adminRoute.post('/banners', verifyAdmin, addBanner);
+adminRoute.put('/banners/:id', verifyAdmin, updateBanner);
+adminRoute.delete('/banners/:id', verifyAdmin, deleteBanner);
+adminRoute.put('/banners/:id/toggle', verifyAdmin, toggleBannerStatus);
 
 // Category routes
 adminRoute.get("/categorydata", categoryData);

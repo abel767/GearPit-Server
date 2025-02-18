@@ -7,6 +7,8 @@ const {verifyToken} = require('../../middleware/auth')
 const {signUp, verifyOTP, resendOTP, refreshTokenController, login ,logout, getUserData, checkBlockStatus} = require('../../controllers/User/userController')
 // user profile controllers
 const {getProfileData, updateUserProfile, changePassword, profileImageUpdate} = require('../../controllers/User/userDashboard')
+//banner controller 
+const {getActiveBanners} = require('../../controllers/Admin/bannerController')
 // user addresses controller
 const {addAddress, getAddresses, updateAddress, deleteAddress} = require('../../controllers/User/userAddressController')
 
@@ -71,6 +73,9 @@ userRoute.post('/refresh-token', refreshTokenController)
 userRoute.post('/login',login)
 
 userRoute.post('/logout',verifyToken, logout)
+
+//banner route
+userRoute.get('/banners',getActiveBanners)
 
 // user data route
 userRoute.get('/getuserdata/:id',getUserData)

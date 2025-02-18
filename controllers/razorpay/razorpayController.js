@@ -276,7 +276,7 @@ const verifyRetryPayment = async (req, res) => {
     }
 
     order.paymentStatus = 'paid';
-    order.status = 'processing';
+    order.status = 'pending';
     order.paymentId = razorpay_payment_id;
     await order.save();
 
