@@ -170,7 +170,11 @@ app.use('/user', userRoutes);
 app.use('/admin', adminRoutes);
 app.use('/auth', authRoute);
 
+app.get('/', (req, res) => {
+  res.json({ message: "GearPit Backend API is running!" });
+});
+
 // Server Setup
-app.listen(process.env.PORT, () => {
-    console.log(`Server is running on http://localhost:${process.env.PORT}`);
+app.listen(process.env.PORT,'0.0.0.0', () => {
+    console.log(`Server is running on http://0.0.0.0:${process.env.PORT}`);
 });
