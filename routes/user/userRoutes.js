@@ -81,7 +81,7 @@ userRoute.get('/banners',getActiveBanners)
 userRoute.get('/getuserdata/:id',getUserData)
 
 // profile routes 
-userRoute.get('/profile/:id', getProfileData)
+userRoute.get('/profile/:id',verifyToken, getProfileData)
 
 userRoute.put('/profileupdate/:id',verifyToken, updateUserProfile)
 userRoute.put('/change-password/:id',verifyToken, changePassword)

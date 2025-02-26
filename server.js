@@ -165,6 +165,17 @@ mongoose.connect(process.env.MONGO_URL)
         console.error('MongoDB connection error', error);
     });
 
+
+    app.get('/test-cors', (req, res) => {
+      res.header("Access-Control-Allow-Origin", "https://gear-pit-client.vercel.app");
+      res.header("Access-Control-Allow-Credentials", "true");
+      res.json({ 
+        message: 'CORS test successful',
+        origin: req.headers.origin,
+        host: req.headers.host
+      });
+    });
+
 // Routes
 app.use('/user', userRoutes);
 app.use('/admin', adminRoutes);
