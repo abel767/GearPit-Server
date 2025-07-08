@@ -21,7 +21,7 @@ const app = express();
 // CORS Options for Production
 const corsOptions = {
   origin: process.env.NODE_ENV === 'production' 
-    ? [process.env.FRONTEND_URL, 'https://your-netlify-app.netlify.app'] // Replace with your actual Netlify URL
+    ? [process.env.FRONTEND_URL, 'https://gearpit.netlify.app'] // Replace with your actual Netlify URL
     : 'http://localhost:5173',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
