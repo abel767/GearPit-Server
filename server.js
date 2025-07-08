@@ -18,9 +18,11 @@ const authRoute = require('./routes/auth/authRoute');
 
 const app = express();
 
-// CORS Options for Local Development
+// CORS Options for Production
 const corsOptions = {
-  origin: 'http://localhost:5173', // Fixed to local development URL
+  origin: process.env.NODE_ENV === 'production' 
+    ? [process.env.FRONTEND_URL, 'https://your-netlify-app.netlify.app'] // Replace with your actual Netlify URL
+    : 'http://localhost:5173',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: [
@@ -39,15 +41,15 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Session Setup for Local Development
+// Session Setup - Dynamic for Production/Development
 app.use(session({
   secret: process.env.SESSION_SECRET || 'your-local-session-secret',
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: false, // false for local development (http)
+    secure: process.env.NODE_ENV === 'production', // true for production (https)
     httpOnly: true,
-    sameSite: 'lax', // lax for local development
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // 'none' for production cross-origin
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
 }));
@@ -61,7 +63,7 @@ passport.use(
     {
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: process.env.GOOGLE_CALLBACK_URL || 'http://localhost:3000/auth/google/callback',
+      callbackURL: process.env.GOOGLE_CALLBACK_URL,
       passReqToCallback: true
     },
     async (request, accessToken, refreshToken, profile, done) => {
@@ -104,13 +106,13 @@ passport.use(
         // Generate tokens
         const accessToken = jwt.sign(
           { userId: user._id, email: user.email },
-          process.env.ACCESS_TOKEN_SECRET || 'your-access-token-secret',
+          process.env.ACCESS_TOKEN_SECRET,
           { expiresIn: '15m' }
         );
 
         const refreshToken = jwt.sign(
           { userId: user._id, email: user.email },
-          process.env.REFRESH_TOKEN_SECRET || 'your-refresh-token-secret',
+          process.env.REFRESH_TOKEN_SECRET,
           { expiresIn: '7d' }
         );
 
@@ -146,7 +148,7 @@ passport.deserializeUser(async (id, done) => {
   }
 });
 
-// Connect to Local MongoDB
+// Connect to MongoDB
 const mongoUrl = process.env.MONGO_URL;
 mongoose.connect(mongoUrl)
   .then(() => {
@@ -162,11 +164,30 @@ app.use('/admin', adminRoutes);
 app.use('/auth', authRoute);
 
 app.get('/', (req, res) => {
-  res.json({ message: "GearPit Backend API is running locally!" });
+  res.json({ 
+    message: "GearPit Backend API is running!",
+    environment: process.env.NODE_ENV || 'development',
+    timestamp: new Date().toISOString()
+  });
 });
 
-// Server Setup for Local Development
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ 
+    message: 'Something went wrong!',
+    error: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error'
+  });
+});
+
+// Handle 404 routes
+app.use('*', (req, res) => {
+  res.status(404).json({ message: 'Route not found' });
+});
+
+// Server Setup
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
+  console.log(`Server is running on port ${PORT}`);
+  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
 });
