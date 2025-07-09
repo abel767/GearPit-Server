@@ -51,17 +51,13 @@ const generateRefreshToken = (user) => {
 };
 
 // Refresh Token Controller
-// Replace your current refreshTokenController with this:
 const refreshTokenController = async (req, res) => {
     try {
-        // Get refresh token from cookies, headers, or body
-        const refreshToken = req.cookies.refreshToken || 
-                           req.headers['x-refresh-token'] || 
-                           req.body.refreshToken;
+        const refreshToken = req.cookies.refreshToken;
 
         if (!refreshToken) {
             return res.status(401).json({
-                message: 'Refresh token not found in cookies, headers or body',
+                message: 'Refresh token not found',
                 status: 'TOKEN_MISSING'
             });
         }
@@ -69,7 +65,15 @@ const refreshTokenController = async (req, res) => {
         const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
         const user = await User.findById(decoded.userId);
 
-        if (!user || refreshToken !== user.refreshToken) {
+        if (!user) {
+            return res.status(401).json({
+                message: 'User not found',
+                status: 'USER_NOT_FOUND'
+            });
+        }
+
+        // Verify the refresh token matches what's stored
+        if (refreshToken !== user.refreshToken) {
             return res.status(401).json({
                 message: 'Invalid refresh token',
                 status: 'INVALID_TOKEN'
@@ -77,53 +81,49 @@ const refreshTokenController = async (req, res) => {
         }
 
         // Generate new tokens
-        const accessToken = generateAccessToken(user);
-        const newRefreshToken = generateRefreshToken(user);
+        const accessToken = jwt.sign(
+            { userId: user._id, email: user.email },
+            process.env.ACCESS_TOKEN_SECRET,
+            { expiresIn: '15m' }
+        );
+
+        const newRefreshToken = jwt.sign(
+            { userId: user._id, email: user.email },
+            process.env.REFRESH_TOKEN_SECRET,
+            { expiresIn: '7d' }
+        );
 
         // Update refresh token in database
         await User.findByIdAndUpdate(user._id, { refreshToken: newRefreshToken });
 
-        // Set HTTP-only cookies
+        // Set cookies
         res.cookie('accessToken', accessToken, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
-            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-            domain: process.env.NODE_ENV === 'production' ? '.gearpit.netlify.app' : 'localhost',
+            sameSite: 'lax',
             maxAge: 15 * 60 * 1000 // 15 minutes
         });
 
         res.cookie('refreshToken', newRefreshToken, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
-            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-            domain: process.env.NODE_ENV === 'production' ? '.gearpit.netlify.app' : 'localhost',
+            sameSite: 'lax',
             maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
         });
 
-        // Also send tokens in response for non-browser clients
         res.json({
             status: 'success',
-            accessToken,
-            refreshToken: newRefreshToken
+            message: 'Tokens refreshed successfully',
+            accessToken
         });
-
     } catch (error) {
         console.error('Refresh token error:', error);
-        
-        if (error.name === 'TokenExpiredError') {
-            return res.status(401).json({
-                message: 'Refresh token expired',
-                status: 'TOKEN_EXPIRED'
-            });
-        }
-        
-        return res.status(401).json({
+        res.status(401).json({
             message: 'Invalid refresh token',
             status: 'INVALID_TOKEN'
         });
     }
 };
-
 // Sign-up
 const signUp = async (req, res) => {
     try {
@@ -286,24 +286,22 @@ const login = async (req, res) => {
         // Update refresh token in database
         await User.findByIdAndUpdate(user._id, { refreshToken });
 
-    // Set cookies
-    res.cookie('accessToken', accessToken, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // Important for cross-site
-    domain: process.env.NODE_ENV === 'production' ? '.gearpit.netlify.app' : 'localhost',
-    path: '/',
-    maxAge: 15 * 60 * 1000
-});
+        // Set cookies with proper settings
+        res.cookie('accessToken', accessToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax', // Changed from 'strict' to 'lax'
+            path: '/',
+            maxAge: 15 * 60 * 1000 // 15 minutes
+        });
 
-res.cookie('refreshToken', refreshToken, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-    domain: process.env.NODE_ENV === 'production' ? '.gearpit.netlify.app' : 'localhost',
-    path: '/',
-    maxAge: 7 * 24 * 60 * 60 * 1000
-});
+        res.cookie('refreshToken', refreshToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax', // Changed from 'strict' to 'lax'
+            path: '/',
+            maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+        });
 
         // Send response
         res.json({
