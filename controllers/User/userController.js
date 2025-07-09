@@ -286,22 +286,24 @@ const login = async (req, res) => {
         // Update refresh token in database
         await User.findByIdAndUpdate(user._id, { refreshToken });
 
-        // Set cookies with proper settings
-        res.cookie('accessToken', accessToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax', // Changed from 'strict' to 'lax'
-            path: '/',
-            maxAge: 15 * 60 * 1000 // 15 minutes
-        });
+    // Set cookies
+    res.cookie('accessToken', accessToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // Important for cross-site
+    domain: process.env.NODE_ENV === 'production' ? '.gearpit.netlify.app' : 'localhost',
+    path: '/',
+    maxAge: 15 * 60 * 1000
+});
 
-        res.cookie('refreshToken', refreshToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax', // Changed from 'strict' to 'lax'
-            path: '/',
-            maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-        });
+res.cookie('refreshToken', refreshToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    domain: process.env.NODE_ENV === 'production' ? '.gearpit.netlify.app' : 'localhost',
+    path: '/',
+    maxAge: 7 * 24 * 60 * 60 * 1000
+});
 
         // Send response
         res.json({
