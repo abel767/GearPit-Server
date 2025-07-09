@@ -51,13 +51,17 @@ const generateRefreshToken = (user) => {
 };
 
 // Refresh Token Controller
+// Replace your current refreshTokenController with this:
 const refreshTokenController = async (req, res) => {
     try {
-        const refreshToken = req.cookies.refreshToken;
+        // Get refresh token from cookies, headers, or body
+        const refreshToken = req.cookies.refreshToken || 
+                           req.headers['x-refresh-token'] || 
+                           req.body.refreshToken;
 
         if (!refreshToken) {
             return res.status(401).json({
-                message: 'Refresh token not found',
+                message: 'Refresh token not found in cookies, headers or body',
                 status: 'TOKEN_MISSING'
             });
         }
@@ -65,15 +69,7 @@ const refreshTokenController = async (req, res) => {
         const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
         const user = await User.findById(decoded.userId);
 
-        if (!user) {
-            return res.status(401).json({
-                message: 'User not found',
-                status: 'USER_NOT_FOUND'
-            });
-        }
-
-        // Verify the refresh token matches what's stored
-        if (refreshToken !== user.refreshToken) {
+        if (!user || refreshToken !== user.refreshToken) {
             return res.status(401).json({
                 message: 'Invalid refresh token',
                 status: 'INVALID_TOKEN'
@@ -81,49 +77,53 @@ const refreshTokenController = async (req, res) => {
         }
 
         // Generate new tokens
-        const accessToken = jwt.sign(
-            { userId: user._id, email: user.email },
-            process.env.ACCESS_TOKEN_SECRET,
-            { expiresIn: '15m' }
-        );
-
-        const newRefreshToken = jwt.sign(
-            { userId: user._id, email: user.email },
-            process.env.REFRESH_TOKEN_SECRET,
-            { expiresIn: '7d' }
-        );
+        const accessToken = generateAccessToken(user);
+        const newRefreshToken = generateRefreshToken(user);
 
         // Update refresh token in database
         await User.findByIdAndUpdate(user._id, { refreshToken: newRefreshToken });
 
-        // Set cookies
+        // Set HTTP-only cookies
         res.cookie('accessToken', accessToken, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax',
+            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+            domain: process.env.NODE_ENV === 'production' ? '.gearpit.netlify.app' : 'localhost',
             maxAge: 15 * 60 * 1000 // 15 minutes
         });
 
         res.cookie('refreshToken', newRefreshToken, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax',
+            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+            domain: process.env.NODE_ENV === 'production' ? '.gearpit.netlify.app' : 'localhost',
             maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
         });
 
+        // Also send tokens in response for non-browser clients
         res.json({
             status: 'success',
-            message: 'Tokens refreshed successfully',
-            accessToken
+            accessToken,
+            refreshToken: newRefreshToken
         });
+
     } catch (error) {
         console.error('Refresh token error:', error);
-        res.status(401).json({
+        
+        if (error.name === 'TokenExpiredError') {
+            return res.status(401).json({
+                message: 'Refresh token expired',
+                status: 'TOKEN_EXPIRED'
+            });
+        }
+        
+        return res.status(401).json({
             message: 'Invalid refresh token',
             status: 'INVALID_TOKEN'
         });
     }
 };
+
 // Sign-up
 const signUp = async (req, res) => {
     try {
