@@ -24,7 +24,15 @@ const generateTokens = (user, isAdmin = false) => {
     return { accessToken, refreshToken };
 };
 
-// Token refresh handler
+// FIXED: Cookie options for production
+const getCookieOptions = (isProduction) => ({
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? 'none' : 'lax', // CRITICAL: 'none' for cross-origin
+    path: '/'
+});
+
+// Token refresh handler - FIXED
 const handleTokenRefresh = async (req, res, next) => {
     try {
         const refreshToken = req.cookies.refreshToken || req.cookies.adminRefreshToken;
@@ -66,15 +74,9 @@ const handleTokenRefresh = async (req, res, next) => {
                 [decoded.role === 'admin' ? 'adminRefreshToken' : 'refreshToken']: newRefreshToken
             });
 
-            // Set cookies with explicit domain and path
-            const cookieOptions = {
-                httpOnly: true,
-                secure: process.env.NODE_ENV === 'production',
-                sameSite: 'lax', // Changed from 'strict' to 'lax' for better compatibility
-                path: '/',
-                domain: process.env.NODE_ENV === 'development' ? 'localhost' : process.env.DOMAIN
-            };
-
+            // Set cookies with production-ready options
+            const cookieOptions = getCookieOptions(process.env.NODE_ENV === 'production');
+            
             res.cookie(decoded.role === 'admin' ? 'adminAccessToken' : 'accessToken', 
                 accessToken, 
                 { ...cookieOptions, maxAge: 15 * 60 * 1000 }
@@ -103,7 +105,7 @@ const handleTokenRefresh = async (req, res, next) => {
     }
 };
 
-// Base authentication middleware
+// FIXED: Base authentication middleware
 const verifyToken = async (req, res, next) => {
     try {
         // Check for access token in cookies and Authorization header
@@ -116,10 +118,8 @@ const verifyToken = async (req, res, next) => {
         }
 
         if (!token) {
-            return res.status(401).json({
-                message: 'Access token missing',
-                status: 'TOKEN_MISSING'
-            });
+            console.log('No access token found, attempting refresh...');
+            return handleTokenRefresh(req, res, next);
         }
 
         try {
@@ -143,8 +143,9 @@ const verifyToken = async (req, res, next) => {
             req.user = decoded;
             next();
         } catch (err) {
-            // Only try to refresh if it's a token expiration error
+            // Try to refresh if it's a token expiration error
             if (err.name === 'TokenExpiredError') {
+                console.log('Access token expired, attempting refresh...');
                 return handleTokenRefresh(req, res, next);
             }
             
@@ -162,54 +163,6 @@ const verifyToken = async (req, res, next) => {
     }
 };
 
-// Admin authentication middleware
-const verifyAdmin = async (req, res, next) => {
-    try {
-        let token = req.cookies.adminAccessToken;
-
-        if (!token && req.headers.authorization) {
-            token = req.headers.authorization.split(' ')[1];
-        }
-
-        if (!token) {
-            return res.status(401).json({ 
-                message: 'Admin access denied',
-                status: 'TOKEN_MISSING'
-            });
-        }
-
-        try {
-            const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
-            
-            if (decoded.role !== 'admin') {
-                return res.status(403).json({ 
-                    message: 'Unauthorized: Admin access required',
-                    status: 'UNAUTHORIZED_ROLE'
-                });
-            }
-
-            const admin = await User.findById(decoded.userId);
-            
-            if (!admin || !admin.isAdmin) {
-                return res.status(401).json({ 
-                    message: 'Admin not found or unauthorized',
-                    status: 'UNAUTHORIZED_USER'
-                });
-            }
-
-            req.user = decoded;
-            next();
-        } catch (err) {
-            return handleTokenRefresh(req, res, next);
-        }
-    } catch (error) {
-        console.error('Admin auth middleware error:', error);
-        return res.status(401).json({ 
-            message: 'Admin authentication failed',
-            status: 'AUTH_FAILED'
-        });
-    }
-};
 
 module.exports = { 
     verifyToken, 

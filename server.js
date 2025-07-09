@@ -18,11 +18,22 @@ const authRoute = require('./routes/auth/authRoute');
 
 const app = express();
 
-// CORS Options for Production
+// CORS Options for Production - FIXED
 const corsOptions = {
-  origin: process.env.NODE_ENV === 'production' 
-    ? [process.env.FRONTEND_URL, 'https://gearpit.netlify.app'] // Replace with your actual Netlify URL
-    : 'http://localhost:5173',
+  origin: function (origin, callback) {
+    // Allow requests with no origin (mobile apps, curl, etc.)
+    if (!origin) return callback(null, true);
+    
+    const allowedOrigins = process.env.NODE_ENV === 'production' 
+      ? [process.env.FRONTEND_URL, 'https://gearpit.netlify.app']
+      : ['http://localhost:5173', 'http://127.0.0.1:5173'];
+    
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: [
@@ -30,29 +41,52 @@ const corsOptions = {
     'Authorization',
     'X-Requested-With',
     'Accept',
-    'Origin'
+    'Origin',
+    'Access-Control-Allow-Origin'
   ]
 };
 
 app.use(cors(corsOptions));
+
+// Add this before other middleware
+app.use((req, res, next) => {
+  // Set CORS headers explicitly for preflight requests
+  if (req.method === 'OPTIONS') {
+    res.header('Access-Control-Allow-Origin', req.headers.origin);
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+    return res.status(200).end();
+  }
+  next();
+});
 
 // Middleware
 app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Session Setup - Dynamic for Production/Development
+// Session Setup - FIXED for production
 app.use(session({
   secret: process.env.SESSION_SECRET || 'your-local-session-secret',
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: process.env.NODE_ENV === 'production', // true for production (https)
+    secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // 'none' for production cross-origin
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // CRITICAL: 'none' for cross-origin
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
 }));
+
+// Add debugging middleware
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.path}`);
+  console.log('Origin:', req.get('origin'));
+  console.log('Cookies:', req.cookies);
+  console.log('Auth Header:', req.headers.authorization);
+  next();
+});
 
 app.use(passport.initialize());
 app.use(passport.session());
