@@ -51,7 +51,6 @@ const generateRefreshToken = (user) => {
 };
 
 // Refresh Token Controller
-// Refresh Token Controller - FIXED
 const refreshTokenController = async (req, res) => {
     try {
         const refreshToken = req.cookies.refreshToken;
@@ -97,23 +96,25 @@ const refreshTokenController = async (req, res) => {
         // Update refresh token in database
         await User.findByIdAndUpdate(user._id, { refreshToken: newRefreshToken });
 
-        // FIXED: Set cookies with production settings
-        const cookieOptions = getCookieOptions(process.env.NODE_ENV === 'production');
-
+        // Set cookies
         res.cookie('accessToken', accessToken, {
-            ...cookieOptions,
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
             maxAge: 15 * 60 * 1000 // 15 minutes
         });
 
         res.cookie('refreshToken', newRefreshToken, {
-            ...cookieOptions,
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
             maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
         });
 
         res.json({
             status: 'success',
             message: 'Tokens refreshed successfully',
-            accessToken // Include token for frontend
+            accessToken
         });
     } catch (error) {
         console.error('Refresh token error:', error);
@@ -123,7 +124,6 @@ const refreshTokenController = async (req, res) => {
         });
     }
 };
-
 // Sign-up
 const signUp = async (req, res) => {
     try {
@@ -286,21 +286,24 @@ const login = async (req, res) => {
         // Update refresh token in database
         await User.findByIdAndUpdate(user._id, { refreshToken });
 
-        // FIXED: Set cookies with production-ready settings
-        const isProduction = process.env.NODE_ENV === 'production';
-        const cookieOptions = getCookieOptions(isProduction);
-
+        // Set cookies with proper settings
         res.cookie('accessToken', accessToken, {
-            ...cookieOptions,
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax', // Changed from 'strict' to 'lax'
+            path: '/',
             maxAge: 15 * 60 * 1000 // 15 minutes
         });
 
         res.cookie('refreshToken', refreshToken, {
-            ...cookieOptions,
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax', // Changed from 'strict' to 'lax'
+            path: '/',
             maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
         });
 
-        // Send response with token (for frontend to store)
+        // Send response
         res.json({
             status: 'VERIFIED',
             message: 'User login successful',
@@ -316,9 +319,7 @@ const login = async (req, res) => {
                 isBlocked: user.isBlocked,
                 verified: user.verified
             },
-            tokens: {
-                accessToken // Include token for frontend storage
-            }
+            accessToken // Include the token in the response
         });
     } catch (error) {
         console.error('Error during login:', error);
